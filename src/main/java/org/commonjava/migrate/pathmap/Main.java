@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.commonjava.util.pathmap.migrate;
+package org.commonjava.migrate.pathmap;
 
 import java.lang.reflect.InvocationTargetException;
 
-import static org.commonjava.util.pathmap.migrate.Util.CMD_MIGRATE;
-import static org.commonjava.util.pathmap.migrate.Util.CMD_SCAN;
+import static org.commonjava.migrate.pathmap.Util.CMD_MIGRATE;
+import static org.commonjava.migrate.pathmap.Util.CMD_SCAN;
 
 public class Main
 {

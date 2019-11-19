@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.commonjava.util.pathmap.migrate;
+package org.commonjava.migrate.pathmap;
 
 import org.apache.commons.io.IOUtils;
 
@@ -38,9 +38,9 @@ import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
-import static org.commonjava.util.pathmap.migrate.Util.FAILED_PATHS_FILE;
-import static org.commonjava.util.pathmap.migrate.Util.STATUS_FILE;
-import static org.commonjava.util.pathmap.migrate.Util.TODO_FILES_DIR;
+import static org.commonjava.migrate.pathmap.Util.FAILED_PATHS_FILE;
+import static org.commonjava.migrate.pathmap.Util.STATUS_FILE;
+import static org.commonjava.migrate.pathmap.Util.TODO_FILES_DIR;
 
 public class MigrateCmd
         implements Command

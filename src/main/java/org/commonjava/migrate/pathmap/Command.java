@@ -1,4 +1,4 @@
-package org.commonjava.util.pathmap.migrate;
+package org.commonjava.migrate.pathmap;
 
 public interface Command
 {
