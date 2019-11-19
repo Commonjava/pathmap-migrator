@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.commonjava.util.pathmap.migrate;
+package org.commonjava.migrate.pathmap;
 
+import org.commonjava.migrate.pathmap.IndyStoreBasedPathGenerator;
 import org.junit.Test;
 
 import static org.hamcrest.CoreMatchers.equalTo;

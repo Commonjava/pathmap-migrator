@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.commonjava.util.pathmap.migrate;
+package org.commonjava.migrate.pathmap;
 
 import org.apache.commons.lang3.StringUtils;
 import org.commonjava.storage.pathmapped.util.ChecksumCalculator;
@@ -35,14 +35,14 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
-import static org.commonjava.util.pathmap.migrate.Util.CMD_MIGRATE;
-import static org.commonjava.util.pathmap.migrate.Util.CMD_SCAN;
-import static org.commonjava.util.pathmap.migrate.Util.DEFAULT_BASE_DIR;
-import static org.commonjava.util.pathmap.migrate.Util.DEFAULT_BATCH_SIZE;
-import static org.commonjava.util.pathmap.migrate.Util.DEFAULT_WORK_DIR;
-import static org.commonjava.util.pathmap.migrate.Util.PROCESSED_FILES_DIR;
-import static org.commonjava.util.pathmap.migrate.Util.STATUS_FILE;
-import static org.commonjava.util.pathmap.migrate.Util.TODO_FILES_DIR;
+import static org.commonjava.migrate.pathmap.Util.CMD_MIGRATE;
+import static org.commonjava.migrate.pathmap.Util.CMD_SCAN;
+import static org.commonjava.migrate.pathmap.Util.DEFAULT_BASE_DIR;
+import static org.commonjava.migrate.pathmap.Util.DEFAULT_BATCH_SIZE;
+import static org.commonjava.migrate.pathmap.Util.DEFAULT_WORK_DIR;
+import static org.commonjava.migrate.pathmap.Util.PROCESSED_FILES_DIR;
+import static org.commonjava.migrate.pathmap.Util.STATUS_FILE;
+import static org.commonjava.migrate.pathmap.Util.TODO_FILES_DIR;
 import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils.PROP_CASSANDRA_HOST;
 import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils.PROP_CASSANDRA_KEYSPACE;
 import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils.PROP_CASSANDRA_PASS;

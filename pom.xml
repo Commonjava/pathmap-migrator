@@ -3,8 +3,8 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>org.commonjava.util</groupId>
-  <artifactId>indy-pathmap-migrator</artifactId>
+  <groupId>org.commonjava.migrate</groupId>
+  <artifactId>pathmap-migrator</artifactId>
   <version>0.1-SNAPSHOT</version>
 
   <properties>
@@ -81,7 +81,7 @@
                 <appendAssemblyId>false</appendAssemblyId>
                 <archive>
                   <manifest>
-                    <mainClass>org.commonjava.util.pathmap.migrate.Main</mainClass>
+                    <mainClass>org.commonjava.migrate.pathmap.Main</mainClass>
                   </manifest>
                 </archive>
               </configuration>
