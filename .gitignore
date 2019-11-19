@@ -1,0 +1,50 @@
+# build
+*.tar.gz
+dependency-reduced-pom.xml
+scratch
+target
+
+# ui build
+uis/layover/bower_components/
+uis/layover/dist/
+**/node/
+**/node_modules/
+**/build/
+**/npm-debug.log
+
+# eclipse
+.classpath
+.project
+.settings
+
+# idea
+.idea
+*.iml
+*.iws
+*.ipr
+
+# mac
+*.DS_Store
+
+# temp ISPN indexing generates
+embedders/savant/org.commonjava.indy.folo.model.TrackedContentEntry/segments*
+embedders/savant/org.commonjava.indy.folo.model.TrackingKey/*
+embedders/savant/indexedStorePath/*
+embedder-tests/savant/org.commonjava.indy.folo.model.TrackedContentEntry/segments*
+embedder-tests/savant/org.commonjava.indy.folo.model.TrackingKey/*
+embedder-tests/savant/indexedStorePath/*
+**/indexedStorePath/*
+
+# virtualenv directories (personal convention)
+.venv
+venv
+*.pyc
+*.egg-info
+
+# multibuild temporary content
+builds-*
+
+# local ftests log
+**/indy.home_IS_UNDEFINED/*
+
+*.dat
