@@ -277,10 +277,10 @@ public class MigrateOptions
 
     private boolean validateOptions()
     {
+        System.out.println( String.format( "Base storage dir for artifacts: %s", getBaseDir() ) );
         System.out.println( String.format( "Working dir for whole migration process: %s", getAbsoluteWorkDir() ) );
         if ( getCommand().equals( CMD_SCAN ) )
         {
-            System.out.println( String.format( "Base storage dir for artifacts: %s", getBaseDir() ) );
             System.out.println( String.format( "Batch of paths to process each time: %s", getBatchSize() ) );
             System.out.println( String.format( "Filter pattern for unwanted files: %s", getFilterPattern() ) );
         }
@@ -292,6 +292,10 @@ public class MigrateOptions
             System.out.println( String.format( "Cassandra server username: %s", getCassandraUser() ) );
             System.out.println( String.format( "Cassandra server keyspace: %s", getCassandraKeyspace() ) );
             System.out.println( String.format( "Will use checksum to dedupe files? %s", isDedupe() ) );
+            if ( isDedupe() )
+            {
+                System.out.println( String.format( "Checksum algorithm for dedupe: %s", getDedupeAlgorithm() ) );
+            }
         }
 
         System.out.println();
@@ -303,7 +307,7 @@ public class MigrateOptions
 
         if ( getCommand().equals( CMD_MIGRATE ) )
         {
-            return validateTodoDir() && validateCassandra();
+            return validateBaseDir() && validateTodoDir() && validateCassandra();
         }
 
         return true;

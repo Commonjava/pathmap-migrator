@@ -31,6 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Timer;
@@ -73,7 +74,7 @@ public class MigrateCmd
                 try (InputStream is = new FileInputStream( p.toFile() ))
                 {
                     paths = IOUtils.readLines( is );
-                    Path processedPath = Paths.get( options.getProcessedDir(), p.getFileName().toString() );
+                    final Path processedPath = Paths.get( options.getProcessedDir(), p.getFileName().toString() );
                     Files.move( p, processedPath );
                 }
                 catch ( IOException e )
@@ -91,7 +92,9 @@ public class MigrateCmd
                         }
                         catch ( MigrateException e )
                         {
-                            e.printStackTrace();
+                            System.out.println(
+                                    String.format( "Error: %s in %s failed to migrate. Error is: %s", path, p,
+                                                   e.getMessage() ) );
                             failedPaths.add( path );
 
                             if ( failedPaths.size() > Util.DEFAULT_BATCH_SIZE )
@@ -102,6 +105,7 @@ public class MigrateCmd
                             }
                         }
                     } );
+                    System.out.println(String.format( "%s finished processing and moved to processed folder", p ));
                 }
             } );
         }
@@ -134,11 +138,11 @@ public class MigrateCmd
     private void init( MigrateOptions options )
     {
         // Reload last processed paths count
-        Path statusFilePath = Paths.get( options.getWorkDir(), STATUS_FILE );
-        File statusFile = statusFilePath.toFile();
-        if ( statusFile.exists() )
+        Path progressFilePath = Paths.get( options.getWorkDir(), PROGRESS_FILE );
+        File progressFile = progressFilePath.toFile();
+        if ( progressFile.exists() )
         {
-            try (BufferedReader reader = new BufferedReader( new FileReader( statusFile ) ))
+            try (BufferedReader reader = new BufferedReader( new FileReader( progressFile ) ))
             {
                 String line = reader.readLine();
                 while ( line != null )
@@ -150,7 +154,6 @@ public class MigrateCmd
                     }
                     line = reader.readLine();
                 }
-                Files.delete( statusFilePath );
             }
             catch ( IOException | NumberFormatException e )
             {
@@ -230,18 +233,13 @@ public class MigrateCmd
             final int currentProcessedCnt = MigrateCmd.this.processedCount.get();
             double progress = (double) currentProcessedCnt / (double) totalCnt;
             String progressString = new DecimalFormat( "##.##" ).format( progress * 100 );
-            final File progressFile = Paths.get( options.getWorkDir(), PROGRESS_FILE ).toFile();
-
+            final Path progressFilePath = Paths.get( options.getWorkDir(), PROGRESS_FILE );
             try
             {
-                if ( !progressFile.exists() )
-                {
-                    progressFile.createNewFile();
-                }
+                Files.deleteIfExists( progressFilePath );
+                final File progressFile = progressFilePath.toFile();
                 try (BufferedWriter writer = new BufferedWriter( new FileWriter( progressFile ) ))
                 {
-                    writer.newLine();
-                    writer.newLine();
                     writer.write( String.format( "Total:%s", totalCnt ) );
                     writer.newLine();
                     writer.write( String.format( "Processed:%s", currentProcessedCnt ) );
