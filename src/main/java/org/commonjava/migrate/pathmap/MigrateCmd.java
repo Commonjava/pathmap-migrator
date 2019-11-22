@@ -100,6 +100,7 @@ public class MigrateCmd
         }
         catch ( Throwable e )
         {
+            e.printStackTrace();
             throw new MigrateException( "Error: Some error happened!", e );
         }
         finally
