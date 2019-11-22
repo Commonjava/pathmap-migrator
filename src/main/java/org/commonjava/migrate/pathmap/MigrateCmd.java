@@ -53,6 +53,8 @@ public class MigrateCmd
 
     private AtomicInteger failedCount =  new AtomicInteger( 0 );
 
+    private long startFromScratch;
+
     static final Predicate<Path> WORKING_FILES_FILTER =
             p -> Files.isRegularFile( p ) && p.getFileName().toString().startsWith( TODO_FILES_DIR );
 
@@ -62,8 +64,6 @@ public class MigrateCmd
     {
         init( options );
         migrator = options.getMigrator();
-
-        final long start = System.currentTimeMillis();
 
         final List<String> failedPaths = new ArrayList<>( options.getBatchSize() );
 
@@ -105,6 +105,7 @@ public class MigrateCmd
                             }
                         }
                     } );
+                    paths = null; // for gc
                     System.out.println(String.format( "%s finished processing and moved to processed folder", p ));
                 }
             } );
@@ -128,7 +129,7 @@ public class MigrateCmd
 
         System.out.println( "\n\n" );
         System.out.println( String.format( "Migrate: total processed files: %s", processedCount ) );
-        System.out.println( String.format( "Migrate: total consumed time: %s seconds", ( end - start ) / 1000 ) );
+        System.out.println( String.format( "Migrate: total spent time: %s seconds", ( end - startFromScratch ) / 1000 ) );
 
         stop( options );
     }
@@ -161,6 +162,7 @@ public class MigrateCmd
             }
         }
 
+        startFromScratch = System.currentTimeMillis();
         final long period = 15000L;
         // Trigger progress update task.
         progressTimer.schedule( new UpdateProgressTask( options ), period, period );
@@ -233,6 +235,7 @@ public class MigrateCmd
             final int currentProcessedCnt = MigrateCmd.this.processedCount.get();
             double progress = (double) currentProcessedCnt / (double) totalCnt;
             String progressString = new DecimalFormat( "##.##" ).format( progress * 100 );
+            final int currentTimeConsumedSeconds = (int) ( ( System.currentTimeMillis() - startFromScratch ) / 1000 );
             final Path progressFilePath = Paths.get( options.getWorkDir(), PROGRESS_FILE );
             try
             {
@@ -247,6 +250,8 @@ public class MigrateCmd
                     writer.write( String.format( "Failed:%s", failedCount.get() ) );
                     writer.newLine();
                     writer.write( String.format( "Progress:%s", progressString ) + "%" );
+                    writer.newLine();
+                    writer.write( String.format( "Time spent: %s", currentTimeConsumedSeconds ) );
                 }
             }
             catch ( IOException e )
