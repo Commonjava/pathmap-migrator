@@ -38,7 +38,9 @@ public class Util
 
     static final String FAILED_PATHS_FILE = "failed_paths";
 
-    static final String STATUS_FILE = "scan_status";
+    static final String STATUS_FILE = "scan_final";
+
+    static final String PROGRESS_FILE = "migrate_progress";
 
     static final String CMD_SCAN = "scan";
 
