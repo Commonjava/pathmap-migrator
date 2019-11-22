@@ -50,6 +50,8 @@ public class MigrateCmd
 
     private AtomicInteger processedCount = new AtomicInteger( 0 );
 
+    private AtomicInteger failedCount =  new AtomicInteger( 0 );
+
     static final Predicate<Path> WORKING_FILES_FILTER =
             p -> Files.isRegularFile( p ) && p.getFileName().toString().startsWith( TODO_FILES_DIR );
 
@@ -91,9 +93,11 @@ public class MigrateCmd
                         {
                             e.printStackTrace();
                             failedPaths.add( path );
+
                             if ( failedPaths.size() > Util.DEFAULT_BATCH_SIZE )
                             {
                                 storeFailedPaths( options, failedPaths );
+                                failedCount.addAndGet( failedPaths.size() );
                                 failedPaths.clear();
                             }
                         }
@@ -111,6 +115,7 @@ public class MigrateCmd
             if ( !failedPaths.isEmpty() )
             {
                 storeFailedPaths( options, failedPaths );
+                failedCount.addAndGet( failedPaths.size() );
                 failedPaths.clear();
             }
         }
@@ -199,7 +204,6 @@ public class MigrateCmd
         @Override
         public void run()
         {
-            final int currentProcessedCnt = MigrateCmd.this.processedCount.get();
             final File statusFile = Paths.get( options.getWorkDir(), STATUS_FILE ).toFile();
             int totalCnt = 0;
             if ( statusFile.exists() )
@@ -223,6 +227,7 @@ public class MigrateCmd
                 }
             }
 
+            final int currentProcessedCnt = MigrateCmd.this.processedCount.get();
             double progress = (double) currentProcessedCnt / (double) totalCnt;
             String progressString = new DecimalFormat( "##.##" ).format( progress * 100 );
             final File progressFile = Paths.get( options.getWorkDir(), PROGRESS_FILE ).toFile();
@@ -240,6 +245,8 @@ public class MigrateCmd
                     writer.write( String.format( "Total:%s", totalCnt ) );
                     writer.newLine();
                     writer.write( String.format( "Processed:%s", currentProcessedCnt ) );
+                    writer.newLine();
+                    writer.write( String.format( "Failed:%s", failedCount.get() ) );
                     writer.newLine();
                     writer.write( String.format( "Progress:%s", progressString ) + "%" );
                 }
