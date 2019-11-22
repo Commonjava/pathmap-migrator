@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
 import static org.commonjava.migrate.pathmap.Util.FAILED_PATHS_FILE;
+import static org.commonjava.migrate.pathmap.Util.PROGRESS_FILE;
 import static org.commonjava.migrate.pathmap.Util.STATUS_FILE;
 import static org.commonjava.migrate.pathmap.Util.TODO_FILES_DIR;
 
@@ -58,6 +59,8 @@ public class MigrateCmd
     {
         init( options );
         migrator = options.getMigrator();
+
+        final long start = System.currentTimeMillis();
 
         final List<String> failedPaths = new ArrayList<>( options.getBatchSize() );
 
@@ -100,6 +103,7 @@ public class MigrateCmd
         }
         catch ( Throwable e )
         {
+            e.printStackTrace();
             throw new MigrateException( "Error: Some error happened!", e );
         }
         finally
@@ -110,6 +114,12 @@ public class MigrateCmd
                 failedPaths.clear();
             }
         }
+
+        final long end = System.currentTimeMillis();
+
+        System.out.println( "\n\n" );
+        System.out.println( String.format( "Migrate: total processed files: %s", processedCount ) );
+        System.out.println( String.format( "Migrate: total consumed time: %s seconds", ( end - start ) / 1000 ) );
 
         stop( options );
     }
@@ -189,9 +199,8 @@ public class MigrateCmd
         @Override
         public void run()
         {
-            int currentProcessedCnt = MigrateCmd.this.processedCount.get();
-            Path statusFilePath = Paths.get( options.getWorkDir(), STATUS_FILE );
-            File statusFile = statusFilePath.toFile();
+            final int currentProcessedCnt = MigrateCmd.this.processedCount.get();
+            final File statusFile = Paths.get( options.getWorkDir(), STATUS_FILE ).toFile();
             int totalCnt = 0;
             if ( statusFile.exists() )
             {
@@ -207,7 +216,6 @@ public class MigrateCmd
                         }
                         line = reader.readLine();
                     }
-                    Files.delete( statusFilePath );
                 }
                 catch ( IOException e )
                 {
@@ -216,21 +224,24 @@ public class MigrateCmd
             }
 
             double progress = (double) currentProcessedCnt / (double) totalCnt;
-            String progressString = new DecimalFormat( "##.##" ).format( progress );
+            String progressString = new DecimalFormat( "##.##" ).format( progress * 100 );
+            final File progressFile = Paths.get( options.getWorkDir(), PROGRESS_FILE ).toFile();
 
             try
             {
-                boolean created = statusFile.createNewFile();
-                if ( created )
+                if ( !progressFile.exists() )
                 {
-                    try (BufferedWriter writer = new BufferedWriter( new FileWriter( statusFile ) ))
-                    {
-                        writer.write( String.format( "Total:%s", totalCnt ) );
-                        writer.newLine();
-                        writer.write( String.format( "Processed:%s", currentProcessedCnt ) );
-                        writer.newLine();
-                        writer.write( String.format( "Progress:%s", progressString ) + "%" );
-                    }
+                    progressFile.createNewFile();
+                }
+                try (BufferedWriter writer = new BufferedWriter( new FileWriter( progressFile ) ))
+                {
+                    writer.newLine();
+                    writer.newLine();
+                    writer.write( String.format( "Total:%s", totalCnt ) );
+                    writer.newLine();
+                    writer.write( String.format( "Processed:%s", currentProcessedCnt ) );
+                    writer.newLine();
+                    writer.write( String.format( "Progress:%s", progressString ) + "%" );
                 }
             }
             catch ( IOException e )

@@ -201,7 +201,7 @@ public class MigrateOptions
 
     public String getCassandraPort()
     {
-        return StringUtils.isBlank( cassandraPort ) ? "9142" : cassandraPort;
+        return StringUtils.isBlank( cassandraPort ) ? "9042" : cassandraPort;
     }
 
     public void setCassandraPort( String cassandraPort )
