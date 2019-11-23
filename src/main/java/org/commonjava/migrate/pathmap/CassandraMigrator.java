@@ -114,7 +114,9 @@ public class CassandraMigrator
         }
         catch ( Exception e )
         {
-            throw new MigrateException( "Error: something wrong happened during update path db.", e );
+            throw new MigrateException(
+                    String.format( "Error: something wrong happened during update path db. Error: %s", e.getMessage() ),
+                    e );
         }
     }
 

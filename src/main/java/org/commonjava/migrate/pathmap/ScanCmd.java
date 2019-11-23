@@ -54,7 +54,8 @@ public class ScanCmd
         }
         catch ( IOException e )
         {
-            throw new MigrateException( "Error: can not prepare work dir.", e );
+            throw new MigrateException( String.format( "Error: can not prepare work dir. Error: %s", e.getMessage() ),
+                                        e );
         }
     }
 
