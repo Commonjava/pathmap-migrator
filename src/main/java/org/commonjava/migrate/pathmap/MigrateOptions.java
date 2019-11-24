@@ -91,6 +91,9 @@ public class MigrateOptions
     @Option( name = "-k", aliases = "--keyspace", usage = "Cassandra server keyspace" )
     private String cassandraKeyspace;
 
+    @Option( name="-t", aliases = "--threads", usage="Threads which will run migrating concurrently")
+    private int migrateThreads;
+
     @Argument( index = 0, metaVar = "command", usage = "Name of command to run, use scan | migrate | resume" )
     private String command;
 
@@ -239,6 +242,16 @@ public class MigrateOptions
         this.cassandraKeyspace = cassandraKeyspace;
     }
 
+    public int getMigrateThreads()
+    {
+        return migrateThreads <= 0 ? 1 : migrateThreads;
+    }
+
+    public void setMigrateThreads( int migrateThreads )
+    {
+        this.migrateThreads = migrateThreads;
+    }
+
     public boolean parseArgs( final String[] args )
     {
         final CmdLineParser parser = new CmdLineParser( this );
@@ -296,6 +309,8 @@ public class MigrateOptions
             {
                 System.out.println( String.format( "Checksum algorithm for dedupe: %s", getDedupeAlgorithm() ) );
             }
+            System.out.println(
+                    String.format( "Threads which will run migrating concurrently: %s", getMigrateThreads() ) );
         }
 
         System.out.println();

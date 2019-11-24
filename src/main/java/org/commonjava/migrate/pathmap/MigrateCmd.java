@@ -31,12 +31,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static org.commonjava.migrate.pathmap.Util.FAILED_PATHS_FILE;
@@ -65,55 +70,115 @@ public class MigrateCmd
         init( options );
         migrator = options.getMigrator();
 
-        final List<String> failedPaths = new ArrayList<>( options.getBatchSize() );
-
         try
         {
-            Files.walk( Paths.get( options.getToDoDir() ), 1 ).filter( WORKING_FILES_FILTER ).forEach( p -> {
-                List<String> paths = null;
-                try (InputStream is = new FileInputStream( p.toFile() ))
+            final List<Path> todoPaths = new ArrayList<>(  );
+            Files.walk( Paths.get( options.getToDoDir() ), 1 ).filter( WORKING_FILES_FILTER ).forEach( todoPaths::add );
+            if ( options.getMigrateThreads() <= 1 )
+            {
+                processBatch( todoPaths, options );
+            }
+            else
+            {
+                final Map<Integer, List<Path>> batchTodoPaths = calculateTodoPathBatches( todoPaths, options );
+                final CountDownLatch latch = new CountDownLatch( options.getMigrateThreads() );
+                final ExecutorService service = Executors.newFixedThreadPool( options.getMigrateThreads() );
+                for ( int i = 0; i < options.getMigrateThreads(); i++ )
                 {
-                    paths = IOUtils.readLines( is );
-                    final Path processedPath = Paths.get( options.getProcessedDir(), p.getFileName().toString() );
-                    Files.move( p, processedPath );
-                }
-                catch ( IOException e )
-                {
-                    //FIXME: how to handle this exception?
-                    e.printStackTrace();
-                }
-                if ( paths != null && !paths.isEmpty() )
-                {
-                    paths.forEach( path -> {
+                    List<Path> paths = batchTodoPaths.get( i );
+                    service.execute( () -> {
                         try
                         {
-                            migrator.migrate( path );
-                            processedCount.getAndIncrement();
+                            processBatch( paths, options );
                         }
-                        catch ( MigrateException e )
+                        finally
                         {
-                            System.out.println(
-                                    String.format( "Error: %s in %s failed to migrate. Error is: %s", path, p,
-                                                   e.getMessage() ) );
-                            failedPaths.add( path );
-
-                            if ( failedPaths.size() > Util.DEFAULT_BATCH_SIZE )
-                            {
-                                storeFailedPaths( options, failedPaths );
-                                failedCount.addAndGet( failedPaths.size() );
-                                failedPaths.clear();
-                            }
+                            latch.countDown();
                         }
                     } );
-                    paths = null; // for gc
-                    System.out.println(String.format( "%s finished processing and moved to processed folder", p ));
+
                 }
-            } );
+                latch.await();
+                service.shutdownNow();
+            }
         }
         catch ( Throwable e )
         {
             e.printStackTrace();
+            stop( options );
             throw new MigrateException( "Error: Some error happened!", e );
+        }
+
+        final long end = System.currentTimeMillis();
+
+        System.out.println( "\n\n" );
+        System.out.println( String.format( "Migrate: total processed paths: %s", processedCount ) );
+        System.out.println( String.format( "Migrate: total failed paths: %s", processedCount ) );
+        System.out.println( String.format( "Migrate: total spent time: %s seconds", ( end - startFromScratch ) / 1000 ) );
+
+        stop( options );
+    }
+
+    private Map<Integer, List<Path>> calculateTodoPathBatches( final List<Path> paths, final MigrateOptions options )
+    {
+        final int threads = options.getMigrateThreads();
+        Map<Integer, List<Path>> batchMap = new HashMap<>( threads );
+        for ( int i = 0; i < paths.size(); i++ )
+        {
+            Integer batch = i % threads;
+            final List<Path> batchList = batchMap.computeIfAbsent( batch, ArrayList::new );
+            batchList.add( paths.get( i ) );
+        }
+        return batchMap;
+    }
+
+    private void processBatch( final List<Path> todoPaths, final MigrateOptions options )
+    {
+        final List<String> failedPaths = new ArrayList<>();
+
+        Consumer<Path> handler = p -> {
+            List<String> paths = null;
+            try (InputStream is = new FileInputStream( p.toFile() ))
+            {
+                paths = IOUtils.readLines( is );
+                final Path processedPath = Paths.get( options.getProcessedDir(), p.getFileName().toString() );
+                Files.move( p, processedPath );
+            }
+            catch ( IOException e )
+            {
+                //FIXME: how to handle this exception?
+                e.printStackTrace();
+            }
+            if ( paths != null && !paths.isEmpty() )
+            {
+                paths.forEach( path -> {
+                    try
+                    {
+                        migrator.migrate( path );
+                        processedCount.getAndIncrement();
+                    }
+                    catch ( MigrateException e )
+                    {
+                        System.out.println( String.format( "Error: %s in %s failed to migrate. Error is: %s", path, p,
+                                                           e.getMessage() ) );
+                        failedPaths.add( path );
+
+                        if ( failedPaths.size() > Util.DEFAULT_BATCH_SIZE )
+                        {
+                            storeFailedPaths( options, failedPaths );
+                            failedCount.addAndGet( failedPaths.size() );
+                            failedPaths.clear();
+                        }
+                    }
+                } );
+                paths = null; // for gc
+                System.out.println( String.format( "%s finished processing and moved to processed folder", p ) );
+            }
+        };
+
+        try
+        {
+            todoPaths.forEach( handler );
         }
         finally
         {
@@ -124,14 +189,6 @@ public class MigrateCmd
                 failedPaths.clear();
             }
         }
-
-        final long end = System.currentTimeMillis();
-
-        System.out.println( "\n\n" );
-        System.out.println( String.format( "Migrate: total processed files: %s", processedCount ) );
-        System.out.println( String.format( "Migrate: total spent time: %s seconds", ( end - startFromScratch ) / 1000 ) );
-
-        stop( options );
     }
 
     private Timer progressTimer = new Timer();
@@ -175,7 +232,7 @@ public class MigrateCmd
         migrator.shutdown();
     }
 
-    private void storeFailedPaths( MigrateOptions options, List<String> failedPaths )
+    private synchronized void storeFailedPaths( MigrateOptions options, List<String> failedPaths )
     {
         File failedFile = Paths.get( options.getWorkDir(), FAILED_PATHS_FILE ).toFile();
         try

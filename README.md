@@ -27,6 +27,7 @@ Options:
 -k (--keyspace) VAL : Cassandra server keyspace  
 -p (--password) VAL : Cassandra server password  
 -u (--user) VAL     : Cassandra server username  
--d (--dedupe)       : If to use checksum to dedupe all files in file storage  
+-d (--dedupe)       : If to use checksum to dedupe all files in file storage
+-t (--threads)      : Threads which will run migrating concurrently
 
 For migrate command, when it start, there will be a "status" file generated in ${workDir} to record current processing status, and will be updated every 30 seconds.
