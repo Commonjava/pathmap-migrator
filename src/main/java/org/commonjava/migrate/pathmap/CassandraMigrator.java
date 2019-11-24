@@ -42,25 +42,37 @@ public class CassandraMigrator
 
     private final IndyStoreBasedPathGenerator storePathGen;
 
-    private final String baseDir;
-
     private final boolean dedup;
 
-    private final String dedupAlgo;
+    private final ChecksumCalculator checksumCalculator;
 
     private CassandraMigrator( final PathMappedStorageConfig config, final String baseDir,
-                               final boolean dedup, final String dedupAlgo )
+                               final boolean dedup, final String dedupAlgo ) throws MigrateException
     {
         this.pathDB = new CassandraPathDB( config );
         this.storePathGen = new IndyStoreBasedPathGenerator( baseDir );
         this.physicalStore = new FileBasedPhysicalStore( new File( baseDir ) );
         this.dedup = dedup;
-        this.dedupAlgo = dedupAlgo;
-        this.baseDir = baseDir;
+        if ( dedup )
+        {
+            try
+            {
+                checksumCalculator = new ChecksumCalculator( dedupAlgo );
+            }
+            catch ( NoSuchAlgorithmException e )
+            {
+                throw new MigrateException( String.format( "Can not init migrator. Error: %s", e.getMessage() ), e );
+            }
+        }
+        else
+        {
+            checksumCalculator = null;
+        }
     }
 
     public static CassandraMigrator getMigrator( final Map<String, Object> cassandraConfig, final String baseDir,
                                                  final boolean dedup, final String dedupAlgo )
+            throws MigrateException
     {
         synchronized ( CassandraMigrator.class )
         {
@@ -128,24 +140,16 @@ public class CassandraMigrator
             throw new IOException(
                     String.format( "Digest error: file not exists or not a regular file for file %s", file ) );
         }
-
-        ChecksumCalculator checksumCalculator = null;
+        if ( checksumCalculator != null )
         {
-            try
+            try (FileInputStream is = new FileInputStream( file ))
             {
-                checksumCalculator = new ChecksumCalculator( dedupAlgo );
+                checksumCalculator.update( IOUtils.toByteArray( is ) );
             }
-            catch ( NoSuchAlgorithmException e )
-            {
-                // verified, ex never happen
-            }
+            return checksumCalculator.getDigestHex();
         }
 
-        try (FileInputStream is = new FileInputStream( file ))
-        {
-            checksumCalculator.update( IOUtils.toByteArray( is ) );
-        }
-        return checksumCalculator.getDigestHex();
+        return null;
     }
 
     public void shutdown()
