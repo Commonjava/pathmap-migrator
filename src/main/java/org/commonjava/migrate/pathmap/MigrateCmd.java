@@ -315,7 +315,7 @@ public class MigrateCmd
                     writer.newLine();
                     writer.write( String.format( "Progress:%s", progressString ) + "%" );
                     writer.newLine();
-                    writer.write( String.format( "Time spent: %s", currentTimeConsumedSeconds ) );
+                    writer.write( String.format( "Time spent: %s seconds", currentTimeConsumedSeconds ) );
                     writer.newLine();
                 }
             }
