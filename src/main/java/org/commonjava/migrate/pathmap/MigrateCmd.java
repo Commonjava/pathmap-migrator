@@ -163,11 +163,10 @@ public class MigrateCmd
                         System.out.println( String.format( "Error: %s in %s failed to migrate. Error is: %s", path, p,
                                                            e.getMessage() ) );
                         failedPaths.add( path );
-
+                        failedCount.incrementAndGet();
                         if ( failedPaths.size() > Util.DEFAULT_BATCH_SIZE )
                         {
                             storeFailedPaths( options, failedPaths );
-                            failedCount.addAndGet( failedPaths.size() );
                             failedPaths.clear();
                         }
                     }
@@ -310,6 +309,7 @@ public class MigrateCmd
                     writer.write( String.format( "Progress:%s", progressString ) + "%" );
                     writer.newLine();
                     writer.write( String.format( "Time spent: %s", currentTimeConsumedSeconds ) );
+                    writer.newLine();
                 }
             }
             catch ( IOException e )
