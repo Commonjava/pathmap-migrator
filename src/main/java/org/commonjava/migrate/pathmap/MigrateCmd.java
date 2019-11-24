@@ -137,6 +137,7 @@ public class MigrateCmd
         final List<String> failedPaths = new ArrayList<>();
 
         Consumer<Path> handler = p -> {
+				    System.out.println( String.format( "Start to process files in %s ", p ) );
             List<String> paths = null;
             try (InputStream is = new FileInputStream( p.toFile() ))
             {
