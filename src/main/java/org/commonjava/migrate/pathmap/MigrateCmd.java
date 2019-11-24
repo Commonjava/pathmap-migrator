@@ -44,6 +44,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import static org.commonjava.migrate.pathmap.Util.DEFAULT_FAILED_BATCH_SIZE;
 import static org.commonjava.migrate.pathmap.Util.FAILED_PATHS_FILE;
 import static org.commonjava.migrate.pathmap.Util.PROGRESS_FILE;
 import static org.commonjava.migrate.pathmap.Util.STATUS_FILE;
@@ -57,6 +58,8 @@ public class MigrateCmd
     private AtomicInteger processedCount = new AtomicInteger( 0 );
 
     private AtomicInteger failedCount =  new AtomicInteger( 0 );
+
+    private AtomicInteger succeedCount = new AtomicInteger( 0 );
 
     private long startFromScratch;
 
@@ -113,7 +116,8 @@ public class MigrateCmd
 
         System.out.println( "\n\n" );
         System.out.println( String.format( "Migrate: total processed paths: %s", processedCount ) );
-        System.out.println( String.format( "Migrate: total failed paths: %s", processedCount ) );
+        System.out.println( String.format( "Migrate: total succeed paths: %s", succeedCount ) );
+        System.out.println( String.format( "Migrate: total failed paths: %s", failedCount ) );
         System.out.println( String.format( "Migrate: total spent time: %s seconds", ( end - startFromScratch ) / 1000 ) );
 
         stop( options );
@@ -153,10 +157,11 @@ public class MigrateCmd
             if ( paths != null && !paths.isEmpty() )
             {
                 paths.forEach( path -> {
+                    processedCount.getAndIncrement();
                     try
                     {
                         migrator.migrate( path );
-                        processedCount.getAndIncrement();
+                        succeedCount.getAndIncrement();
                     }
                     catch ( MigrateException e )
                     {
@@ -164,7 +169,7 @@ public class MigrateCmd
                                                            e.getMessage() ) );
                         failedPaths.add( path );
                         failedCount.incrementAndGet();
-                        if ( failedPaths.size() > Util.DEFAULT_BATCH_SIZE )
+                        if ( failedPaths.size() > DEFAULT_FAILED_BATCH_SIZE )
                         {
                             storeFailedPaths( options, failedPaths );
                             failedPaths.clear();
@@ -303,6 +308,8 @@ public class MigrateCmd
                     writer.write( String.format( "Total:%s", totalCnt ) );
                     writer.newLine();
                     writer.write( String.format( "Processed:%s", currentProcessedCnt ) );
+                    writer.newLine();
+                    writer.write( String.format( "Succeed:%s", succeedCount.get() ) );
                     writer.newLine();
                     writer.write( String.format( "Failed:%s", failedCount.get() ) );
                     writer.newLine();

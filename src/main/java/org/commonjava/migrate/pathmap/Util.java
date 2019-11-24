@@ -32,6 +32,8 @@ public class Util
 
     static final int DEFAULT_BATCH_SIZE = 100000;
 
+    static final int DEFAULT_FAILED_BATCH_SIZE = 10000;
+
     static final String TODO_FILES_DIR = "todo";
 
     static final String PROCESSED_FILES_DIR = "processed";
