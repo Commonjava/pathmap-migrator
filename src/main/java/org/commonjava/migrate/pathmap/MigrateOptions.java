@@ -43,11 +43,14 @@ import static org.commonjava.migrate.pathmap.Util.DEFAULT_WORK_DIR;
 import static org.commonjava.migrate.pathmap.Util.PROCESSED_FILES_DIR;
 import static org.commonjava.migrate.pathmap.Util.STATUS_FILE;
 import static org.commonjava.migrate.pathmap.Util.TODO_FILES_DIR;
+import static org.commonjava.migrate.pathmap.Util.printInfo;
+import static org.commonjava.migrate.pathmap.Util.newLine;
 import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils.PROP_CASSANDRA_HOST;
 import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils.PROP_CASSANDRA_KEYSPACE;
 import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils.PROP_CASSANDRA_PASS;
 import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils.PROP_CASSANDRA_PORT;
 import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils.PROP_CASSANDRA_USER;
+
 
 public class MigrateOptions
 {
@@ -274,13 +277,13 @@ public class MigrateOptions
 
         if ( StringUtils.isBlank( getCommand() ) )
         {
-            System.out.println( "Command can not be null" );
+            printInfo( "Command can not be null" );
             return false;
         }
         final String cmd = getCommand().toLowerCase().trim();
         if ( !cmd.equals( Util.CMD_SCAN ) && !cmd.equals( Util.CMD_MIGRATE ) )
         {
-            System.out.println( String.format( "Invalid command %s, use scan | migrate | resume", cmd ) );
+            printInfo( String.format( "Invalid command %s, use scan | migrate | resume", cmd ) );
             return false;
         }
 
@@ -290,31 +293,31 @@ public class MigrateOptions
 
     private boolean validateOptions()
     {
-        System.out.println( String.format( "Base storage dir for artifacts: %s", getBaseDir() ) );
-        System.out.println( String.format( "Working dir for whole migration process: %s", getAbsoluteWorkDir() ) );
+        printInfo( String.format( "Base storage dir for artifacts: %s", getBaseDir() ) );
+        printInfo( String.format( "Working dir for whole migration process: %s", getAbsoluteWorkDir() ) );
         if ( getCommand().equals( CMD_SCAN ) )
         {
-            System.out.println( String.format( "Batch of paths to process each time: %s", getBatchSize() ) );
-            System.out.println( String.format( "Filter pattern for unwanted files: %s", getFilterPattern() ) );
+            printInfo( String.format( "Batch of paths to process each time: %s", getBatchSize() ) );
+            printInfo( String.format( "Filter pattern for unwanted files: %s", getFilterPattern() ) );
         }
 
         if ( getCommand().equals( CMD_MIGRATE ) )
         {
-            System.out.println( String.format( "Cassandra server host: %s", getCassandraHost() ) );
-            System.out.println( String.format( "Cassandra server port: %s", getCassandraPort() ) );
-            System.out.println( String.format( "Cassandra server username: %s", getCassandraUser() ) );
-            System.out.println( String.format( "Cassandra server keyspace: %s", getCassandraKeyspace() ) );
-            System.out.println( String.format( "Will use checksum to dedupe files? %s", isDedupe() ) );
+            printInfo( String.format( "Cassandra server host: %s", getCassandraHost() ) );
+            printInfo( String.format( "Cassandra server port: %s", getCassandraPort() ) );
+            printInfo( String.format( "Cassandra server username: %s", getCassandraUser() ) );
+            printInfo( String.format( "Cassandra server keyspace: %s", getCassandraKeyspace() ) );
+            printInfo( String.format( "Will use checksum to dedupe files? %s", isDedupe() ) );
             if ( isDedupe() )
             {
-                System.out.println( String.format( "Checksum algorithm for dedupe: %s", getDedupeAlgorithm() ) );
+                printInfo( String.format( "Checksum algorithm for dedupe: %s", getDedupeAlgorithm() ) );
             }
-            System.out.println(
+            printInfo(
                     String.format( "Threads which will run migrating concurrently: %s", getMigrateThreads() ) );
         }
 
-        System.out.println();
-        //        System.out.println( String.format( "Threads number to run the whole process? %s", getThreads() ) );
+        newLine();
+        //        printInfo( String.format( "Threads number to run the whole process? %s", getThreads() ) );
         if ( getCommand().equals( CMD_SCAN ) && !validateBaseDir() )
         {
             return false;
@@ -333,7 +336,7 @@ public class MigrateOptions
         Path basePath = Paths.get( getBaseDir() );
         if ( !Files.isDirectory( basePath ) )
         {
-            System.out.println( String.format( "Error: base dir %s is not a directory", getBaseDir() ) );
+            printInfo( String.format( "Error: base dir %s is not a directory", getBaseDir() ) );
             return false;
         }
         List<String> childs = new ArrayList<>( 3 );
@@ -343,7 +346,7 @@ public class MigrateOptions
         }
         catch ( IOException e )
         {
-            System.out.println(
+            printInfo(
                     String.format( "Error: io error happened during listing sub dirs: %s", e.getMessage() ) );
             return false;
         }
@@ -359,7 +362,7 @@ public class MigrateOptions
 
         if ( !containsMaven )
         {
-            System.out.println( String.format( "Error: the base dir %s is not a valid volume to store indy artifacts.",
+            printInfo( String.format( "Error: the base dir %s is not a valid volume to store indy artifacts.",
                                                getBaseDir() ) );
             return false;
         }
@@ -372,7 +375,7 @@ public class MigrateOptions
         Path todoPath = Paths.get( getToDoDir() );
         if ( !Files.isDirectory( todoPath ) )
         {
-            System.out.println( String.format(
+            printInfo( String.format(
                     "Validation failed: todo folder %s in workdir %s does not exist or is not a directory. Make sure you have used 'scan' command to generate the path files in this folder.",
                     getToDoDir(), getWorkDir() ) );
             return false;
@@ -387,13 +390,13 @@ public class MigrateOptions
         }
         catch ( IOException e )
         {
-            System.out.println( String.format( "Error: Can not list dir %s", getToDoDir() ) );
+            printInfo( String.format( "Error: Can not list dir %s", getToDoDir() ) );
             return false;
         }
 
         if ( todoFilesCount.get() <= 0 )
         {
-            System.out.println(
+            printInfo(
                     "Error: There are no path entries generated for migrating, please use 'scan' command first to generate them." );
             return false;
         }
@@ -411,7 +414,7 @@ public class MigrateOptions
         }
         catch ( Throwable t )
         {
-            System.out.println( String.format( "Error: cassandra validation failed: %s", t.getMessage() ) );
+            printInfo( String.format( "Error: cassandra validation failed: %s", t.getMessage() ) );
             return false;
         }
         return true;
@@ -465,19 +468,19 @@ public class MigrateOptions
     {
         if ( error != null )
         {
-            System.out.println( "Invalid option(s): " + error.getMessage() );
-            System.out.println();
+            printInfo( "Invalid option(s): " + error.getMessage() );
+            newLine();
         }
 
-        System.out.println( "Usage: $0 $command [OPTIONS]" );
-        System.out.println();
-        System.out.println();
+        printInfo( "Usage: $0 $command [OPTIONS]" );
+        newLine();
+        newLine();
         // If we are running under a Linux shell COLUMNS might be available for the width
         // of the terminal.
         parser.setUsageWidth(
                 ( System.getenv( "COLUMNS" ) == null ? 100 : Integer.parseInt( System.getenv( "COLUMNS" ) ) ) );
         parser.printUsage( System.out );
-        System.out.println();
+        newLine();
     }
 
     public String getAbsoluteWorkDir()
