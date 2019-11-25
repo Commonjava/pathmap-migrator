@@ -49,6 +49,8 @@ import static org.commonjava.migrate.pathmap.Util.FAILED_PATHS_FILE;
 import static org.commonjava.migrate.pathmap.Util.PROGRESS_FILE;
 import static org.commonjava.migrate.pathmap.Util.STATUS_FILE;
 import static org.commonjava.migrate.pathmap.Util.TODO_FILES_DIR;
+import static org.commonjava.migrate.pathmap.Util.newLines;
+import static org.commonjava.migrate.pathmap.Util.printInfo;
 
 public class MigrateCmd
         implements Command
@@ -114,11 +116,11 @@ public class MigrateCmd
 
         final long end = System.currentTimeMillis();
 
-        System.out.println( "\n\n" );
-        System.out.println( String.format( "Migrate: total processed paths: %s", processedCount ) );
-        System.out.println( String.format( "Migrate: total succeed paths: %s", succeedCount ) );
-        System.out.println( String.format( "Migrate: total failed paths: %s", failedCount ) );
-        System.out.println( String.format( "Migrate: total spent time: %s seconds", ( end - startFromScratch ) / 1000 ) );
+        newLines(2);
+        printInfo( String.format( "Migrate: total processed paths: %s", processedCount ) );
+        printInfo( String.format( "Migrate: total succeed paths: %s", succeedCount ) );
+        printInfo( String.format( "Migrate: total failed paths: %s", failedCount ) );
+        printInfo( String.format( "Migrate: total spent time: %s seconds", ( end - startFromScratch ) / 1000 ) );
 
         stop( options );
     }
@@ -141,7 +143,7 @@ public class MigrateCmd
         final List<String> failedPaths = new ArrayList<>();
 
         Consumer<Path> handler = p -> {
-				    System.out.println( String.format( "Start to process files in %s ", p ) );
+				    printInfo( String.format( "Start to process files in %s ", p ) );
             List<String> paths = null;
             try (InputStream is = new FileInputStream( p.toFile() ))
             {
@@ -165,7 +167,7 @@ public class MigrateCmd
                     }
                     catch ( MigrateException e )
                     {
-                        System.out.println( String.format( "Error: %s in %s failed to migrate. Error is: %s", path, p,
+                        printInfo( String.format( "Error: %s in %s failed to migrate. Error is: %s", path, p,
                                                            e.getMessage() ) );
                         failedPaths.add( path );
                         failedCount.incrementAndGet();
@@ -177,7 +179,7 @@ public class MigrateCmd
                     }
                 } );
                 paths = null; // for gc
-                System.out.println( String.format( "%s finished processing and moved to processed folder", p ) );
+                printInfo( String.format( "%s finished processing and moved to processed folder", p ) );
             }
         };
 

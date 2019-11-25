@@ -35,11 +35,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
-import static org.commonjava.migrate.pathmap.Util.TODO_FILES_DIR;
-import static org.commonjava.migrate.pathmap.Util.prepareWorkingDir;
 import static org.commonjava.indy.pkg.PackageTypeConstants.PKG_TYPE_GENERIC_HTTP;
 import static org.commonjava.indy.pkg.PackageTypeConstants.PKG_TYPE_MAVEN;
 import static org.commonjava.indy.pkg.PackageTypeConstants.PKG_TYPE_NPM;
+import static org.commonjava.migrate.pathmap.Util.TODO_FILES_DIR;
+import static org.commonjava.migrate.pathmap.Util.newLine;
+import static org.commonjava.migrate.pathmap.Util.newLines;
+import static org.commonjava.migrate.pathmap.Util.prepareWorkingDir;
+import static org.commonjava.migrate.pathmap.Util.printInfo;
 
 public class ScanCmd
         implements Command
@@ -84,7 +87,7 @@ public class ScanCmd
             }
             finally
             {
-                System.out.println( String.format( "%s: %s scan finished", Thread.currentThread().getName(), p ) );
+                printInfo( String.format( "%s: %s scan finished", Thread.currentThread().getName(), p ) );
                 latch.countDown();
             }
         } ) );
@@ -98,9 +101,10 @@ public class ScanCmd
         }
         executor.shutdownNow();
         final long end = System.currentTimeMillis();
-        System.out.println( "\n\n" );
-        System.out.println( String.format( "File Scan completed, there are %s files need to migrate.", total.get() ) );
-        System.out.println( String.format( "Time consumed: %s seconds", ( end - start ) / 1000 ) );
+        newLines(2);
+        printInfo( String.format( "File Scan completed, there are %s files need to migrate.", total.get() ) );
+        printInfo( String.format( "Time consumed: %s seconds", ( end - start ) / 1000 ) );
+        newLine();
 
         try
         {
@@ -131,7 +135,7 @@ public class ScanCmd
         final Path repoPath = Paths.get( pkgDir );
         final String pkgName = repoPath.getName( repoPath.getNameCount() - 1 ).toString();
         final String todoPrefix = TODO_FILES_DIR + "-" + pkgName;
-        System.out.println( String.format( "Start to scan package %s for files", pkgDir ) );
+        printInfo( String.format( "Start to scan package %s for files", pkgDir ) );
         final List<String> filePaths = new ArrayList<>( options.getBatchSize() );
         final AtomicInteger batchNum = new AtomicInteger( 0 );
         final AtomicInteger totalFileNum = new AtomicInteger( 0 );
@@ -165,27 +169,17 @@ public class ScanCmd
             totalFileNum.addAndGet( filePaths.size() );
             filePaths.clear();
         }
-        System.out.println(
+        printInfo(
                 String.format( "There are %s files in package path %s to migrate", totalFileNum.get(), pkgDir ) );
         return totalFileNum.get();
     }
-
-    //    private List<String> listPaths( final String rootPath, final int maxDepth, final int initFactor,
-    //                                    final Predicate<Path> filter )
-    //            throws IOException
-    //    {
-    //        final List<String> allReposPath = new ArrayList<>( 2000 );
-    //        final Path base = Paths.get( rootPath );
-    //        Files.walk( base, maxDepth ).filter( filter ).forEach( p -> allReposPath.add( p.toString() ) );
-    //        return allReposPath;
-    //    }
 
     private void storeBatchToFile( final List<String> filePaths, final String todoDir, final String prefix,
                                    final int batch )
     {
         final String batchFileName = prefix + "-" + "batch-" + batch + ".txt";
         final Path batchFilePath = Paths.get( todoDir, batchFileName );
-        System.out.println(
+        printInfo(
                 String.format( "Start to store paths for batch %s to file %s for %s", batch, batchFileName, todoDir ) );
         try (OutputStream os = new FileOutputStream( batchFilePath.toFile() ))
         {
@@ -193,10 +187,9 @@ public class ScanCmd
         }
         catch ( IOException e )
         {
-            System.out.println( String.format( "Error: Cannot write paths to files for batch %s", batchFileName ) );
+            printInfo( String.format( "Error: Cannot write paths to files for batch %s", batchFileName ) );
         }
-        System.out.println( String.format( "Batch %s to file %s for %s finished", batch, batchFileName, todoDir ) );
-        //        generatedFilePaths.add( batchFileName );
+        printInfo( String.format( "Batch %s to file %s for %s finished", batch, batchFileName, todoDir ) );
     }
 
     private void storeTotal( final int totalNum, final MigrateOptions options )
@@ -206,6 +199,7 @@ public class ScanCmd
         try (FileOutputStream os = new FileOutputStream( f ))
         {
             IOUtils.write( String.format( "Total:%s", totalNum ), os );
+            IOUtils.write( "\n", os );
         }
     }
 

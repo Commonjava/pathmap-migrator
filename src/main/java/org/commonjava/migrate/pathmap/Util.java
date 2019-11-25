@@ -54,17 +54,35 @@ public class Util
         Path todoDir = Paths.get( workDir, TODO_FILES_DIR );
         if ( todoDir.toFile().exists() )
         {
-            System.out.println( "todo folder is not empty, will clean it first." );
+            printInfo( "todo folder is not empty, will clean it first." );
             FileUtils.forceDelete( todoDir.toFile() );
         }
         Files.createDirectories( todoDir );
         Path processedDir = Paths.get( workDir, PROCESSED_FILES_DIR );
         if ( processedDir.toFile().exists() )
         {
-            System.out.println( "processed folder is not empty, will clean it first." );
+            printInfo( "processed folder is not empty, will clean it first." );
             FileUtils.forceDelete( processedDir.toFile() );
         }
         Files.createDirectories( processedDir );
+    }
+
+    static void printInfo( final String message )
+    {
+        System.out.println( message );
+    }
+
+    static void newLines( final int lines )
+    {
+        for ( int i = 0; i < lines; i++ )
+        {
+            System.out.println();
+        }
+    }
+
+    static void newLine()
+    {
+        newLines( 1 );
     }
 
 }
