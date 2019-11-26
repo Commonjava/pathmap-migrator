@@ -142,7 +142,6 @@ public class MigrateCmd
             if ( paths != null && !paths.isEmpty() )
             {
                 paths.forEach( path -> {
-                    processedCount.getAndIncrement();
                     try
                     {
                         migrator.migrate( path );
@@ -151,7 +150,7 @@ public class MigrateCmd
                     catch ( MigrateException e )
                     {
                         printInfo( String.format( "Error: %s in %s failed to migrate. Error is: %s", path, p,
-                                                           e.getMessage() ) );
+                                                  e.getMessage() ) );
                         failedPaths.add( path );
                         failedCount.incrementAndGet();
                         if ( failedPaths.size() > DEFAULT_FAILED_BATCH_SIZE )
@@ -159,6 +158,10 @@ public class MigrateCmd
                             storeFailedPaths( options, failedPaths );
                             failedPaths.clear();
                         }
+                    }
+                    finally
+                    {
+                        processedCount.getAndIncrement();
                     }
                 } );
                 paths = null; // for gc

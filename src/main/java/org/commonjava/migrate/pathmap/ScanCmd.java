@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -136,14 +137,30 @@ public class ScanCmd
     private Integer scanReposRun( final List<String> pkgFolderPaths, final MigrateOptions options )
     {
         final AtomicInteger total = new AtomicInteger( 0 );
+        final Map<String, Map<Integer, List<Path>>> pkgAllPathsSlices = new HashMap<>( 3 );
         pkgFolderPaths.forEach( pkg -> {
             try
             {
-                printInfo( String.format( "Scanning for package %s start", pkg ) );
                 final List<Path> repos = listReposForPkg( pkg );
                 final Map<Integer, List<Path>> slices = slicePathsByMod( repos, options.getThreads() );
-                final CountDownLatch latch = new CountDownLatch( slices.size() );
+                pkgAllPathsSlices.put( pkg, slices );
+            }
+            catch ( IOException e )
+            {
+                e.printStackTrace();
+            }
+        } );
+
+        final CountDownLatch pkgLatch = new CountDownLatch( pkgAllPathsSlices.size() );
+
+        pkgAllPathsSlices.forEach( ( k, v ) -> new Thread( () -> {
+            try
+            {
+                final String pkg = k;
+                final Map<Integer, List<Path>> slices = v;
+                printInfo( String.format( "Scanning for package %s start", pkg ) );
                 final ExecutorService service = Executors.newFixedThreadPool( slices.size() );
+                final CountDownLatch sliceLatch = new CountDownLatch( slices.size() );
                 final AtomicInteger totalForPkg = new AtomicInteger( 0 );
                 final AtomicInteger batchNum = new AtomicInteger( 0 );
                 for ( int i = 0; i < slices.size(); i++ )
@@ -162,21 +179,37 @@ public class ScanCmd
                         finally
                         {
                             printInfo( String.format( "slice %s for pkg %s scan finished,", sliceNum, pkg ) );
-                            latch.countDown();
+                            sliceLatch.countDown();
                         }
                     } );
                 }
-                latch.await();
-                service.shutdownNow();
-                total.addAndGet( totalForPkg.get() );
-                printInfo( String.format( "Package %s scan finished. There are %s files for the pkg", pkg,
-                                          totalForPkg.get() ) );
+                try
+                {
+                    sliceLatch.await();
+                    service.shutdownNow();
+                    total.addAndGet( totalForPkg.get() );
+                    printInfo( String.format( "Package %s scan finished. There are %s files for the pkg", pkg,
+                                              totalForPkg.get() ) );
+                }
+                catch ( InterruptedException e )
+                {
+                    e.printStackTrace();
+                }
             }
-            catch ( Exception e )
+            finally
             {
-                e.printStackTrace();
+                pkgLatch.countDown();
             }
-        } );
+        } ).start() );
+
+        try
+        {
+            pkgLatch.await();
+        }
+        catch ( InterruptedException e )
+        {
+            e.printStackTrace();
+        }
         return total.get();
     }
 
