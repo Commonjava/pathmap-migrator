@@ -21,6 +21,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class Util
 {
@@ -83,6 +87,17 @@ public class Util
     static void newLine()
     {
         newLines( 1 );
+    }
+
+    static Map<Integer, List<Path>> slicePathsByMod( final List<Path> totalPaths, final int mod )
+    {
+        Map<Integer, List<Path>> slices = new HashMap<>( mod );
+        for ( int i = 0; i < totalPaths.size(); i++ )
+        {
+            List<Path> repoPathSlice = slices.computeIfAbsent( (i % mod), ArrayList::new );
+            repoPathSlice.add( totalPaths.get( i ) );
+        }
+        return slices;
     }
 
 }

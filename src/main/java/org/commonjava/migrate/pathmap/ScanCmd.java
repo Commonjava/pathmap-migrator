@@ -28,6 +28,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -43,6 +44,7 @@ import static org.commonjava.migrate.pathmap.Util.newLine;
 import static org.commonjava.migrate.pathmap.Util.newLines;
 import static org.commonjava.migrate.pathmap.Util.prepareWorkingDir;
 import static org.commonjava.migrate.pathmap.Util.printInfo;
+import static org.commonjava.migrate.pathmap.Util.slicePathsByMod;
 
 public class ScanCmd
         implements Command
@@ -71,6 +73,34 @@ public class ScanCmd
         final List<String> pkgFolderPaths;
         pkgFolderPaths = listValidPkgFolders( options.getBaseDir() );
 
+        final int total;
+        if ( options.getThreads() <= 1 )
+        {
+            total = noScanReposRun( pkgFolderPaths, options );
+        }
+        else
+        {
+            total = scanReposRun( pkgFolderPaths, options );
+        }
+
+        final long end = System.currentTimeMillis();
+        newLines( 2 );
+        printInfo( String.format( "File Scan completed, there are %s files need to migrate.", total ) );
+        printInfo( String.format( "Time consumed: %s seconds", ( end - start ) / 1000 ) );
+        newLine();
+
+        try
+        {
+            storeTotal( total, options );
+        }
+        catch ( IOException e )
+        {
+            e.printStackTrace();
+        }
+    }
+
+    private Integer noScanReposRun( final List<String> pkgFolderPaths, final MigrateOptions options )
+    {
         final AtomicInteger total = new AtomicInteger( 0 );
 
         final ExecutorService executor = Executors.newFixedThreadPool( pkgFolderPaths.size() );
@@ -78,7 +108,7 @@ public class ScanCmd
         pkgFolderPaths.forEach( p -> executor.execute( () -> {
             try
             {
-                int totalForPkg = listFiles( p, options );
+                int totalForPkg = listPkgFiles( p, options );
                 total.addAndGet( totalForPkg );
             }
             catch ( IOException e )
@@ -100,20 +130,66 @@ public class ScanCmd
             e.printStackTrace();
         }
         executor.shutdownNow();
-        final long end = System.currentTimeMillis();
-        newLines(2);
-        printInfo( String.format( "File Scan completed, there are %s files need to migrate.", total.get() ) );
-        printInfo( String.format( "Time consumed: %s seconds", ( end - start ) / 1000 ) );
-        newLine();
+        return total.get();
+    }
 
-        try
-        {
-            storeTotal( total.get(), options );
-        }
-        catch ( IOException e )
-        {
-            e.printStackTrace();
-        }
+    private Integer scanReposRun( final List<String> pkgFolderPaths, final MigrateOptions options )
+    {
+        final AtomicInteger total = new AtomicInteger( 0 );
+        pkgFolderPaths.forEach( pkg -> {
+            try
+            {
+                printInfo( String.format( "Scanning for package %s start", pkg ) );
+                final List<Path> repos = listReposForPkg( pkg );
+                final Map<Integer, List<Path>> slices = slicePathsByMod( repos, options.getThreads() );
+                final CountDownLatch latch = new CountDownLatch( slices.size() );
+                final ExecutorService service = Executors.newFixedThreadPool( slices.size() );
+                final AtomicInteger totalForPkg = new AtomicInteger( 0 );
+                final AtomicInteger batchNum = new AtomicInteger( 0 );
+                for ( int i = 0; i < slices.size(); i++ )
+                {
+                    final int sliceNum = i;
+                    final List<Path> repoSlice = slices.get( sliceNum );
+                    printInfo(
+                            String.format( "Slice %s for pkg %s scan start, there are %s repos in this slice", sliceNum,
+                                           pkg, repoSlice.size() ) );
+                    service.execute( () -> {
+                        try
+                        {
+                            int totalForSlice = listReposFiles( pkg, repoSlice, options, batchNum );
+                            totalForPkg.addAndGet( totalForSlice );
+                        }
+                        finally
+                        {
+                            printInfo( String.format( "slice %s for pkg %s scan finished,", sliceNum, pkg ) );
+                            latch.countDown();
+                        }
+                    } );
+                }
+                latch.await();
+                service.shutdownNow();
+                total.addAndGet( totalForPkg.get() );
+                printInfo( String.format( "Package %s scan finished. There are %s files for the pkg", pkg,
+                                          totalForPkg.get() ) );
+            }
+            catch ( Exception e )
+            {
+                e.printStackTrace();
+            }
+        } );
+        return total.get();
+    }
+
+    private List<Path> listReposForPkg( final String pkgDir )
+            throws IOException
+    {
+        printInfo( String.format( "Start to scan package %s for repos", pkgDir ) );
+        final List<Path> repos = new ArrayList<>();
+        final Path pkgPath = Paths.get( pkgDir );
+        Files.walk( pkgPath, 1 ).filter( p -> Files.isDirectory( p ) && !p.equals( pkgPath ) ).forEach( repos::add );
+        printInfo(
+                String.format( "Repos scan for package %s finished, there are %s repos in it", pkgDir, repos.size() ) );
+        return repos;
     }
 
     private List<String> listValidPkgFolders( final String baseDir )
@@ -129,37 +205,23 @@ public class ScanCmd
         return pkgPaths;
     }
 
-    private int listFiles( final String pkgDir, final MigrateOptions options )
+    private int listPkgFiles( final String pkgDir, final MigrateOptions options )
             throws IOException
     {
-        final Path repoPath = Paths.get( pkgDir );
-        final String pkgName = repoPath.getName( repoPath.getNameCount() - 1 ).toString();
-        final String todoPrefix = TODO_FILES_DIR + "-" + pkgName;
+        final String todoPrefix = getTodoPrefixForPkg( pkgDir );
         printInfo( String.format( "Start to scan package %s for files", pkgDir ) );
         final List<String> filePaths = new ArrayList<>( options.getBatchSize() );
         final AtomicInteger batchNum = new AtomicInteger( 0 );
         final AtomicInteger totalFileNum = new AtomicInteger( 0 );
-        final Predicate<Path> fileFilter;
-        if ( StringUtils.isNotBlank( options.getFilterPattern() ) )
-        {
-            final Pattern pattern = Pattern.compile( options.getFilterPattern() );
-            fileFilter = p -> {
-                boolean notNeed = pattern.matcher( p.getFileName().toString() ).matches();
-                return Files.isRegularFile( p ) && !notNeed;
-            };
-        }
-        else
-        {
-            fileFilter = Files::isRegularFile;
-        }
-        Files.walk( repoPath, Integer.MAX_VALUE ).filter( fileFilter ).forEach( p -> {
+        final Predicate<Path> fileFilter = getFileFilter( options );
+        Files.walk( Paths.get( pkgDir ), Integer.MAX_VALUE ).filter( fileFilter ).forEach( p -> {
             filePaths.add( p.toString() );
             if ( filePaths.size() >= options.getBatchSize() )
             {
-                storeBatchToFile( filePaths, options.getToDoDir(), todoPrefix, batchNum.get() );
+                storeBatchToFile( filePaths, options.getToDoDir(), todoPrefix, batchNum.getAndIncrement() );
                 totalFileNum.addAndGet( filePaths.size() );
                 filePaths.clear();
-                batchNum.getAndIncrement();
+
             }
         } );
 
@@ -169,9 +231,66 @@ public class ScanCmd
             totalFileNum.addAndGet( filePaths.size() );
             filePaths.clear();
         }
-        printInfo(
-                String.format( "There are %s files in package path %s to migrate", totalFileNum.get(), pkgDir ) );
+        printInfo( String.format( "There are %s files in package path %s to migrate", totalFileNum.get(), pkgDir ) );
         return totalFileNum.get();
+    }
+
+    private int listReposFiles( final String pkg, final List<Path> repos, final MigrateOptions options,
+                                final AtomicInteger batchNum )
+    {
+        final String todoPrefix = getTodoPrefixForPkg( pkg );
+        final List<String> filePaths = new ArrayList<>( options.getBatchSize() );
+        final AtomicInteger totalFileNum = new AtomicInteger( 0 );
+        final Predicate<Path> fileFilter = getFileFilter( options );
+        repos.forEach( repo -> {
+            try
+            {
+                Files.walk( repo, Integer.MAX_VALUE ).filter( fileFilter ).forEach( p -> {
+                    filePaths.add( p.toString() );
+                    if ( filePaths.size() >= options.getBatchSize() )
+                    {
+                        storeBatchToFile( filePaths, options.getToDoDir(), todoPrefix, batchNum.getAndIncrement() );
+                        totalFileNum.addAndGet( filePaths.size() );
+                        filePaths.clear();
+                    }
+                } );
+            }
+            catch ( IOException e )
+            {
+                printInfo( String.format( "Error: something wrong happened during scanning repo %s. Error is: %s", repo,
+                                          e.getMessage() ) );
+            }
+        } );
+        if ( !filePaths.isEmpty() )
+        {
+            storeBatchToFile( filePaths, options.getToDoDir(), todoPrefix, batchNum.getAndIncrement() );
+            totalFileNum.addAndGet( filePaths.size() );
+            filePaths.clear();
+        }
+        return totalFileNum.get();
+    }
+
+    private Predicate<Path> getFileFilter( final MigrateOptions options )
+    {
+        if ( StringUtils.isNotBlank( options.getFilterPattern() ) )
+        {
+            final Pattern pattern = Pattern.compile( options.getFilterPattern() );
+            return p -> {
+                boolean notNeed = pattern.matcher( p.getFileName().toString() ).matches();
+                return Files.isRegularFile( p ) && !notNeed;
+            };
+        }
+        else
+        {
+            return Files::isRegularFile;
+        }
+    }
+
+    private String getTodoPrefixForPkg( final String pkgPathString )
+    {
+        final Path pkgPath = Paths.get( pkgPathString );
+        final String pkgName = pkgPath.getName( pkgPath.getNameCount() - 1 ).toString();
+        return TODO_FILES_DIR + "-" + pkgName;
     }
 
     private void storeBatchToFile( final List<String> filePaths, final String todoDir, final String prefix,
@@ -180,7 +299,7 @@ public class ScanCmd
         final String batchFileName = prefix + "-" + "batch-" + batch + ".txt";
         final Path batchFilePath = Paths.get( todoDir, batchFileName );
         printInfo(
-                String.format( "Start to store paths for batch %s to file %s for %s", batch, batchFileName, todoDir ) );
+                String.format( "Start to store paths for batch %s to file %s in %s", batch, batchFileName, todoDir ) );
         try (OutputStream os = new FileOutputStream( batchFilePath.toFile() ))
         {
             IOUtils.writeLines( filePaths, null, os );
@@ -189,7 +308,7 @@ public class ScanCmd
         {
             printInfo( String.format( "Error: Cannot write paths to files for batch %s", batchFileName ) );
         }
-        printInfo( String.format( "Batch %s to file %s for %s finished", batch, batchFileName, todoDir ) );
+        printInfo( String.format( "Batch %s to file %s in %s finished", batch, batchFileName, todoDir ) );
     }
 
     private void storeTotal( final int totalNum, final MigrateOptions options )

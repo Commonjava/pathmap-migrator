@@ -51,6 +51,7 @@ import static org.commonjava.migrate.pathmap.Util.STATUS_FILE;
 import static org.commonjava.migrate.pathmap.Util.TODO_FILES_DIR;
 import static org.commonjava.migrate.pathmap.Util.newLines;
 import static org.commonjava.migrate.pathmap.Util.printInfo;
+import static org.commonjava.migrate.pathmap.Util.slicePathsByMod;
 
 public class MigrateCmd
         implements Command
@@ -79,16 +80,16 @@ public class MigrateCmd
         {
             final List<Path> todoPaths = new ArrayList<>(  );
             Files.walk( Paths.get( options.getToDoDir() ), 1 ).filter( WORKING_FILES_FILTER ).forEach( todoPaths::add );
-            if ( options.getMigrateThreads() <= 1 )
+            if ( options.getThreads() <= 1 )
             {
                 processBatch( todoPaths, options );
             }
             else
             {
-                final Map<Integer, List<Path>> batchTodoPaths = calculateTodoPathBatches( todoPaths, options );
-                final CountDownLatch latch = new CountDownLatch( options.getMigrateThreads() );
-                final ExecutorService service = Executors.newFixedThreadPool( options.getMigrateThreads() );
-                for ( int i = 0; i < options.getMigrateThreads(); i++ )
+                final Map<Integer, List<Path>> batchTodoPaths = slicePathsByMod( todoPaths, options.getThreads() );
+                final CountDownLatch latch = new CountDownLatch( batchTodoPaths.size() );
+                final ExecutorService service = Executors.newFixedThreadPool( batchTodoPaths.size() );
+                for ( int i = 0; i < batchTodoPaths.size(); i++ )
                 {
                     List<Path> paths = batchTodoPaths.get( i );
                     service.execute( () -> {
@@ -123,19 +124,6 @@ public class MigrateCmd
         printInfo( String.format( "Migrate: total spent time: %s seconds", ( end - startFromScratch ) / 1000 ) );
 
         stop( options );
-    }
-
-    private Map<Integer, List<Path>> calculateTodoPathBatches( final List<Path> paths, final MigrateOptions options )
-    {
-        final int threads = options.getMigrateThreads();
-        Map<Integer, List<Path>> batchMap = new HashMap<>( threads );
-        for ( int i = 0; i < paths.size(); i++ )
-        {
-            Integer batch = i % threads;
-            final List<Path> batchList = batchMap.computeIfAbsent( batch, ArrayList::new );
-            batchList.add( paths.get( i ) );
-        }
-        return batchMap;
     }
 
     private void processBatch( final List<Path> todoPaths, final MigrateOptions options )
