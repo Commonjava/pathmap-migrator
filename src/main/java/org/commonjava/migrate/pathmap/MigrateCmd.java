@@ -15,24 +15,19 @@
  */
 package org.commonjava.migrate.pathmap;
 
-import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.FileUtils;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Timer;
@@ -133,9 +128,9 @@ public class MigrateCmd
         Consumer<Path> handler = p -> {
 				    printInfo( String.format( "Start to process files in %s ", p ) );
             List<String> paths = null;
-            try (InputStream is = new FileInputStream( p.toFile() ))
+            try
             {
-                paths = IOUtils.readLines( is );
+                paths = FileUtils.readLines( p.toFile() );
                 final Path processedPath = Paths.get( options.getProcessedDir(), p.getFileName().toString() );
                 Files.move( p, processedPath );
             }
@@ -236,10 +231,7 @@ public class MigrateCmd
             {
                 failedFile.createNewFile();
             }
-            try (OutputStream os = new FileOutputStream( failedFile ))
-            {
-                IOUtils.writeLines( failedPaths, null, os );
-            }
+            FileUtils.writeLines( failedFile, failedPaths, true );
         }
         catch ( IOException e )
         {
