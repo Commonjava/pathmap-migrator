@@ -11,23 +11,24 @@ There are two commands here: scan and migrate
 Usage: java -jar ${package}.jar scan [options]
 
 Options:  
--B (--batch) N      : Batch of paths to process each time  
--b (--base) VAL     : Base dir of storage for all indy artifacts  
--w (--workdir) VAL  : Work dir to store all generated working files
--f (--filter) VAL   : Regex style filter string to filter some files which are unwanted
+-B (--batch)     : Batch of paths to process each time  
+-b (--base)      : Base dir of storage for all indy artifacts  
+-w (--workdir)   : Work dir to store all generated working files
+-f (--filter)    : Regex style filter string to filter some files which are unwanted
+-t (--threads)   : Threads will run concurrently to scan against repos for pkg types
 
 #### migrate: read all files for paths and migrate them to cassandra db
 ##### Note: Before this command, please use "scan" to generate all paths files first
 Usage: java -jar ${package}.jar migrate [options]
 
 Options:  
--w (--workdir) VAL  : Work dir to store all generated working files  
--H (--host) VAL     : Cassandra server hostname  
--P (--port) VAL     : Cassandra server port  
--k (--keyspace) VAL : Cassandra server keyspace  
--p (--password) VAL : Cassandra server password  
--u (--user) VAL     : Cassandra server username  
--d (--dedupe)       : If to use checksum to dedupe all files in file storage
--t (--threads)      : Threads which will run migrating concurrently
+-w (--workdir)   : Work dir to store all generated working files  
+-H (--host)      : Cassandra server hostname  
+-P (--port)      : Cassandra server port  
+-k (--keyspace)  : Cassandra server keyspace  
+-p (--password)  : Cassandra server password  
+-u (--user)      : Cassandra server username  
+-d (--dedupe)    : If to use checksum to dedupe all files in file storage
+-t (--threads)   : Threads which will run migrating concurrently
 
 For migrate command, when it start, there will be a "status" file generated in ${workDir} to record current processing status, and will be updated every 30 seconds.

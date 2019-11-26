@@ -94,8 +94,8 @@ public class MigrateOptions
     @Option( name = "-k", aliases = "--keyspace", usage = "Cassandra server keyspace" )
     private String cassandraKeyspace;
 
-    @Option( name="-t", aliases = "--threads", usage="Threads which will run migrating concurrently")
-    private int migrateThreads;
+    @Option( name="-t", aliases = "--threads", usage="Scan: Threads will run concurrently to scan against repos for pkg types. Migrate:Threads which will run migrating concurrently. ")
+    private int threads;
 
     @Argument( index = 0, metaVar = "command", usage = "Name of command to run, use scan | migrate | resume" )
     private String command;
@@ -245,14 +245,14 @@ public class MigrateOptions
         this.cassandraKeyspace = cassandraKeyspace;
     }
 
-    public int getMigrateThreads()
+    public int getThreads()
     {
-        return migrateThreads <= 0 ? 1 : migrateThreads;
+        return threads <= 0 ? 1 : threads;
     }
 
-    public void setMigrateThreads( int migrateThreads )
+    public void setThreads( int threads )
     {
-        this.migrateThreads = migrateThreads;
+        this.threads = threads;
     }
 
     public boolean parseArgs( final String[] args )
@@ -299,6 +299,7 @@ public class MigrateOptions
         {
             printInfo( String.format( "Batch of paths to process each time: %s", getBatchSize() ) );
             printInfo( String.format( "Filter pattern for unwanted files: %s", getFilterPattern() ) );
+            printInfo( String.format( "Threads will run concurrently to scan against repos for pkg types: %s", getThreads() ));
         }
 
         if ( getCommand().equals( CMD_MIGRATE ) )
@@ -313,7 +314,7 @@ public class MigrateOptions
                 printInfo( String.format( "Checksum algorithm for dedupe: %s", getDedupeAlgorithm() ) );
             }
             printInfo(
-                    String.format( "Threads which will run migrating concurrently: %s", getMigrateThreads() ) );
+                    String.format( "Threads which will run migrating concurrently: %s", getThreads() ) );
         }
 
         newLine();
