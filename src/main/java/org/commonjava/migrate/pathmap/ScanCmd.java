@@ -331,8 +331,8 @@ public class ScanCmd
     {
         final String batchFileName = prefix + "-" + "batch-" + batch + ".txt";
         final Path batchFilePath = Paths.get( todoDir, batchFileName );
-        printInfo(
-                String.format( "Start to store paths for batch %s to file %s in %s", batch, batchFileName, todoDir ) );
+        printInfo( String.format( "Start to store paths for batch %s to file %s", batch,
+                                  Paths.get( todoDir, batchFileName ) ) );
         try (OutputStream os = new FileOutputStream( batchFilePath.toFile() ))
         {
             IOUtils.writeLines( filePaths, null, os );
@@ -341,7 +341,7 @@ public class ScanCmd
         {
             printInfo( String.format( "Error: Cannot write paths to files for batch %s", batchFileName ) );
         }
-        printInfo( String.format( "Batch %s to file %s in %s finished", batch, batchFileName, todoDir ) );
+        printInfo( String.format( "Batch %s to file %s finished", batch, Paths.get( todoDir, batchFileName ) ) );
     }
 
     private void storeTotal( final int totalNum, final MigrateOptions options )
