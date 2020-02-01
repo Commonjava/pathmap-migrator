@@ -122,7 +122,7 @@ public class CassandraMigrator
 
         try
         {
-            pathDB.insert( fileSystem, path, new Date(), fileInfo.getFileId(), file.length(), storePath, checksum );
+            pathDB.insert( fileSystem, path, new Date(), null, fileInfo.getFileId(), file.length(), storePath, checksum );
         }
         catch ( Exception e )
         {
