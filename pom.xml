@@ -9,7 +9,8 @@
 
   <properties>
     <javaVersion>1.8</javaVersion>
-    <pathmap.version>0.1-SNAPSHOT</pathmap.version>
+    <indy.version>1.9.10-SNAPSHOT</indy.version>
+    <pathmap.version>1.1-SNAPSHOT</pathmap.version>
   </properties>
 
   <dependencies>
@@ -46,7 +47,7 @@
     <dependency>
       <groupId>org.commonjava.indy</groupId>
       <artifactId>indy-api</artifactId>
-      <version>1.9.6-SNAPSHOT</version>
+      <version>${indy.version}</version>
     </dependency>
     <dependency>
       <groupId>junit</groupId>
