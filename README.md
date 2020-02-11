@@ -13,8 +13,8 @@ Usage: java -jar ${package}.jar scan [options]
 Options:  
 -B (--batch)     : Batch of paths to process each time  
 -b (--base)      : Base dir of storage for all indy artifacts  
--w (--workdir)   : Work dir to store all generated working files
--f (--filter)    : Regex style filter string to filter some files which are unwanted
+-w (--workdir)   : Work dir to store all generated working files  
+-f (--filter)    : Regex style filter string to filter some files which are unwanted  
 -t (--threads)   : Threads will run concurrently to scan against repos for pkg types
 
 #### migrate: read all files for paths and migrate them to cassandra db
@@ -28,7 +28,7 @@ Options:
 -k (--keyspace)  : Cassandra server keyspace  
 -p (--password)  : Cassandra server password  
 -u (--user)      : Cassandra server username  
--d (--dedupe)    : If to use checksum to dedupe all files in file storage
+-d (--dedupe)    : If to use checksum to dedupe all files in file storage  
 -t (--threads)   : Threads which will run migrating concurrently
 
 For migrate command, when it start, there will be a "status" file generated in ${workDir} to record current processing status, and will be updated every 30 seconds.
