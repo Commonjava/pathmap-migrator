@@ -37,9 +37,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
-import static org.commonjava.indy.pkg.PackageTypeConstants.PKG_TYPE_GENERIC_HTTP;
-import static org.commonjava.indy.pkg.PackageTypeConstants.PKG_TYPE_MAVEN;
-import static org.commonjava.indy.pkg.PackageTypeConstants.PKG_TYPE_NPM;
 import static org.commonjava.migrate.pathmap.Util.TODO_FILES_DIR;
 import static org.commonjava.migrate.pathmap.Util.newLine;
 import static org.commonjava.migrate.pathmap.Util.newLines;
@@ -224,6 +221,10 @@ public class ScanCmd
                 String.format( "Repos scan for package %s finished, there are %s repos in it", pkgDir, repos.size() ) );
         return repos;
     }
+
+    private static final String PKG_TYPE_GENERIC_HTTP = "generic-http";
+    private static final String PKG_TYPE_MAVEN = "maven";
+    private static final String PKG_TYPE_NPM = "npm";
 
     private List<String> listValidPkgFolders( final String baseDir )
     {

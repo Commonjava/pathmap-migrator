@@ -3,7 +3,6 @@ Indy path mapped storage migrator
 
 This command line tools is used to do one-off migration task from legacy file based storage to new path mapped storage
 
-
 ### How to use
 There are two commands here: scan and migrate
 
@@ -17,12 +16,15 @@ Options:
 -f (--filter)    : Regex style filter string to filter some files which are unwanted  
 -t (--threads)   : Threads will run concurrently to scan against repos for pkg types
 
-#### migrate: read all files for paths and migrate them to cassandra db
-##### Note: Before this command, please use "scan" to generate all paths files first
+#### migrate: read all files for paths and migrate them to cassandra db  
+
+##### Note: Before this command, please use "scan" to generate all paths files first  
+
 Usage: java -jar ${package}.jar migrate [options]
 
 Options:  
 -w (--workdir)   : Work dir to store all generated working files  
+-b (--base)      : Base dir of storage for all indy artifacts  
 -H (--host)      : Cassandra server hostname  
 -P (--port)      : Cassandra server port  
 -k (--keyspace)  : Cassandra server keyspace  

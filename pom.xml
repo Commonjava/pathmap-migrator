@@ -45,9 +45,9 @@
       <version>${pathmap.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.commonjava.indy</groupId>
-      <artifactId>indy-api</artifactId>
-      <version>${indy.version}</version>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-core</artifactId>
+      <version>1.1.7</version>
     </dependency>
     <dependency>
       <groupId>junit</groupId>
