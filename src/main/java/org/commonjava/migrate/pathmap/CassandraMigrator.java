@@ -15,6 +15,9 @@
  */
 package org.commonjava.migrate.pathmap;
 
+import com.datastax.driver.core.BoundStatement;
+import com.datastax.driver.core.PreparedStatement;
+import com.datastax.driver.core.Session;
 import org.apache.commons.io.IOUtils;
 import org.commonjava.storage.pathmapped.config.DefaultPathMappedStorageConfig;
 import org.commonjava.storage.pathmapped.config.PathMappedStorageConfig;
@@ -23,17 +26,25 @@ import org.commonjava.storage.pathmapped.pathdb.datastax.CassandraPathDB;
 import org.commonjava.storage.pathmapped.spi.FileInfo;
 import org.commonjava.storage.pathmapped.spi.PhysicalStore;
 import org.commonjava.storage.pathmapped.util.ChecksumCalculator;
+import org.commonjava.storage.pathmapped.util.PathMapUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
+import java.util.Set;
+
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 public class CassandraMigrator
 {
+    private static final String MAVEN_HOSTED = "maven:hosted:";
+
     private static CassandraMigrator migrator;
 
     private final CassandraPathDB pathDB;
@@ -46,10 +57,20 @@ public class CassandraMigrator
 
     private final ChecksumCalculator checksumCalculator;
 
+    private final PreparedStatement preparedStoresIncrement;
+
+    private final String keyspace = "indycache";
+
+    private final String gaStorePattern = "^build-\\d+";
+
+    private final Session session;
+
     private CassandraMigrator( final PathMappedStorageConfig config, final String baseDir,
                                final boolean dedup, final String dedupAlgo ) throws MigrateException
     {
         this.pathDB = new CassandraPathDB( config );
+        this.session = pathDB.getSession();
+        this.preparedStoresIncrement = session.prepare( "UPDATE " + keyspace + ".ga SET stores = stores + ? WHERE ga=?;" );
         this.storePathGen = new IndyStoreBasedPathGenerator( baseDir );
         this.physicalStore = new FileBasedPhysicalStore( new File( baseDir ) );
         this.dedup = dedup;
@@ -123,6 +144,7 @@ public class CassandraMigrator
         try
         {
             pathDB.insert( fileSystem, path, new Date(), null, fileInfo.getFileId(), file.length(), storePath, checksum );
+            insertGa( fileSystem, path );
         }
         catch ( Exception e )
         {
@@ -130,6 +152,45 @@ public class CassandraMigrator
                     String.format( "Error: something wrong happened during update path db. Error: %s", e.getMessage() ),
                     e );
         }
+    }
+
+    private void insertGa( String fileSystem, String path )
+    {
+        if ( fileSystem.startsWith( MAVEN_HOSTED ) && path.endsWith( ".pom" ) )
+        {
+            String repoName = fileSystem.substring( MAVEN_HOSTED.length() );
+            if ( gaStorePattern != null && repoName.matches( gaStorePattern ) )
+            {
+                update( getGaPath( path ), Collections.singleton( repoName ) );
+            }
+        }
+    }
+
+    private String getGaPath( String path )
+    {
+        String ret = null;
+        String parentPath = PathMapUtils.getParentPath( path );
+        if ( isNotBlank( parentPath ) )
+        {
+            Path ga = Paths.get( parentPath ).getParent();
+            if ( ga != null )
+            {
+                ret = ga.toString();
+                if ( ret.startsWith( "/" ) )
+                {
+                    ret = ret.substring( 1 ); // remove the leading '/'
+                }
+            }
+        }
+        return ret;
+    }
+
+    private void update( String ga, Set<String> set )
+    {
+        BoundStatement bound = preparedStoresIncrement.bind();
+        bound.setSet( 0, set );
+        bound.setString( 1, ga );
+        session.execute( bound );
     }
 
     private String calculateChecksum( File file )
