@@ -65,11 +65,23 @@ public class CassandraMigrator
 
     private final Session session;
 
+    // @formatter:off
+    private static String getSchemaCreateTable( String keyspace )
+    {
+        return "CREATE TABLE IF NOT EXISTS " + keyspace + ".ga ("
+                        + "ga varchar,"
+                        + "stores set<text>,"
+                        + "PRIMARY KEY (ga)"
+                        + ");";
+    }
+    // @formatter:on
+
     private CassandraMigrator( final PathMappedStorageConfig config, final String baseDir,
                                final boolean dedup, final String dedupAlgo ) throws MigrateException
     {
         this.pathDB = new CassandraPathDB( config );
         this.session = pathDB.getSession();
+        session.execute( getSchemaCreateTable( keyspace ) );
         this.preparedStoresIncrement = session.prepare( "UPDATE " + keyspace + ".ga SET stores = stores + ? WHERE ga=?;" );
         this.storePathGen = new IndyStoreBasedPathGenerator( baseDir );
         this.physicalStore = new FileBasedPhysicalStore( new File( baseDir ) );
