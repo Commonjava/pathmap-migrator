@@ -36,6 +36,7 @@ import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -64,6 +65,10 @@ public class CassandraMigrator
     private final String gaStorePattern = "^build-\\d+";
 
     private final Session session;
+
+    private final String SCANNED_STORES = "scanned-stores";
+
+    private final Set<String> scanned = Collections.synchronizedSet( new HashSet<>() );
 
     // @formatter:off
     private static String getSchemaCreateTable( String keyspace )
@@ -174,6 +179,7 @@ public class CassandraMigrator
             if ( gaStorePattern != null && repoName.matches( gaStorePattern ) )
             {
                 update( getGaPath( path ), Collections.singleton( repoName ) );
+                scanned.add( repoName );
             }
         }
     }
@@ -227,6 +233,7 @@ public class CassandraMigrator
 
     public void shutdown()
     {
+        update( SCANNED_STORES, scanned );
         migrator = null;
         pathDB.close();
     }
