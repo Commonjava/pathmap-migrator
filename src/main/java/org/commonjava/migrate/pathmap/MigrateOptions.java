@@ -51,7 +51,6 @@ import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPa
 import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils.PROP_CASSANDRA_PORT;
 import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils.PROP_CASSANDRA_USER;
 
-
 public class MigrateOptions
 {
     @Option( name = "-h", aliases = "--help", usage = "Print this and exit" )
@@ -94,8 +93,19 @@ public class MigrateOptions
     @Option( name = "-k", aliases = "--keyspace", usage = "Cassandra server keyspace" )
     private String cassandraKeyspace;
 
-    @Option( name="-t", aliases = "--threads", usage="Scan: Threads will run concurrently to scan against repos for pkg types. Migrate:Threads which will run migrating concurrently. ")
+    @Option( name = "-t", aliases = "--threads",
+             usage = "Scan: Threads will run concurrently to scan against repos for pkg types. Migrate:Threads which will run migrating concurrently. " )
     private int threads;
+
+    @Option( name = "-i", aliases = "--indexGA", usage = "Determine if to index GA cache during migrate operation" )
+    private boolean indexEnable = true;
+
+    @Option( name = "-c", aliases = "--cacheTable", usage = "Indy cache table in cassandra, should come with keyspace together" )
+    private String indyCacheTable;
+
+    @Option( name = "-g", aliases = "--indexGAStorePattern",
+             usage = "The store pattern for stores which will be cached in GA cache" )
+    private String indexGAStorePattern;
 
     @Argument( index = 0, metaVar = "command", usage = "Name of command to run, use scan | migrate | resume" )
     private String command;
@@ -139,16 +149,6 @@ public class MigrateOptions
     {
         this.filterPattern = filterPattern;
     }
-
-    //    public int getThreads()
-    //    {
-    //        return threads <= 0 ? DEFAULT_THREADS_NUM : threads;
-    //    }
-    //
-    //    public void setThreads( int threads )
-    //    {
-    //        this.threads = threads;
-    //    }
 
     public int getBatchSize()
     {
@@ -255,6 +255,36 @@ public class MigrateOptions
         this.threads = threads;
     }
 
+    public boolean isIndexEnable()
+    {
+        return indexEnable;
+    }
+
+    public void setIndexEnable( boolean indexEnable )
+    {
+        this.indexEnable = indexEnable;
+    }
+
+    public String getIndexGAStorePattern()
+    {
+        return StringUtils.isBlank( indexGAStorePattern ) ? "^build-\\d+" : indexGAStorePattern;
+    }
+
+    public void setIndexGAStorePattern( String indexGAStorePattern )
+    {
+        this.indexGAStorePattern = indexGAStorePattern;
+    }
+
+    public String getIndyCacheTable()
+    {
+        return StringUtils.isBlank( indyCacheTable ) ? "indycache.ga" : indyCacheTable;
+    }
+
+    public void setIndyCacheTable( String indyCacheTable )
+    {
+        this.indyCacheTable = indyCacheTable;
+    }
+
     public boolean parseArgs( final String[] args )
     {
         final CmdLineParser parser = new CmdLineParser( this );
@@ -299,7 +329,8 @@ public class MigrateOptions
         {
             printInfo( String.format( "Batch of paths to process each time: %s", getBatchSize() ) );
             printInfo( String.format( "Filter pattern for unwanted files: %s", getFilterPattern() ) );
-            printInfo( String.format( "Threads will run concurrently to scan against repos for pkg types: %s", getThreads() ));
+            printInfo( String.format( "Threads will run concurrently to scan against repos for pkg types: %s",
+                                      getThreads() ) );
         }
 
         if ( getCommand().equals( CMD_MIGRATE ) )
@@ -313,8 +344,13 @@ public class MigrateOptions
             {
                 printInfo( String.format( "Checksum algorithm for dedupe: %s", getDedupeAlgorithm() ) );
             }
-            printInfo(
-                    String.format( "Threads which will run migrating concurrently: %s", getThreads() ) );
+            printInfo( String.format( "Will do index for GA cache table? %s", isIndexEnable() ) );
+            if ( isIndexEnable() )
+            {
+                printInfo( String.format( "Store patterns for GA cache: %s", getIndexGAStorePattern() ) );
+                printInfo( String.format( "The cassandra cache table for GA cache: %s", getIndyCacheTable() ) );
+            }
+            printInfo( String.format( "Threads which will run migrating concurrently: %s", getThreads() ) );
         }
 
         newLine();
@@ -347,8 +383,7 @@ public class MigrateOptions
         }
         catch ( IOException e )
         {
-            printInfo(
-                    String.format( "Error: io error happened during listing sub dirs: %s", e.getMessage() ) );
+            printInfo( String.format( "Error: io error happened during listing sub dirs: %s", e.getMessage() ) );
             return false;
         }
         boolean containsMaven = false;
@@ -364,7 +399,7 @@ public class MigrateOptions
         if ( !containsMaven )
         {
             printInfo( String.format( "Error: the base dir %s is not a valid volume to store indy artifacts.",
-                                               getBaseDir() ) );
+                                      getBaseDir() ) );
             return false;
         }
 
@@ -461,7 +496,8 @@ public class MigrateOptions
                             String.format( "Error: checksum algorithm not supported: %s", getDedupeAlgorithm() ), e );
                 }
             }
-            migrator = CassandraMigrator.getMigrator( cassandraProps, getBaseDir(), isDedupe(), getDedupeAlgorithm() );
+            CassandraMigrator.GACacheOptions cacheOptions = new CassandraMigrator.GACacheOptions( this.isIndexEnable(), this.getIndexGAStorePattern(), this.getIndyCacheTable()  );
+            migrator = CassandraMigrator.getMigrator( cassandraProps, getBaseDir(), isDedupe(), getDedupeAlgorithm(), cacheOptions );
         }
     }
 

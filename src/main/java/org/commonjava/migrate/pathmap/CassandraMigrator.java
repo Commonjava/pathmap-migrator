@@ -58,22 +58,18 @@ public class CassandraMigrator
 
     private final ChecksumCalculator checksumCalculator;
 
-    private final PreparedStatement preparedStoresIncrement;
-
-    private final String keyspace = "indycache";
-
-    private final String gaStorePattern = "^build-\\d+";
+    private PreparedStatement preparedStoresIncrement;
 
     private final Session session;
 
-    private final String SCANNED_STORES = "scanned-stores";
+    private final GACacheOptions cacheOptions;
 
     private final Set<String> scanned = Collections.synchronizedSet( new HashSet<>() );
 
     // @formatter:off
-    private static String getSchemaCreateTable( String keyspace )
+    private static String getSchemaCreateTable( String cacheTable )
     {
-        return "CREATE TABLE IF NOT EXISTS " + keyspace + ".ga ("
+        return "CREATE TABLE IF NOT EXISTS " + cacheTable + " ("
                         + "ga varchar,"
                         + "stores set<text>,"
                         + "PRIMARY KEY (ga)"
@@ -82,12 +78,12 @@ public class CassandraMigrator
     // @formatter:on
 
     private CassandraMigrator( final PathMappedStorageConfig config, final String baseDir,
-                               final boolean dedup, final String dedupAlgo ) throws MigrateException
+                               final boolean dedup, final String dedupAlgo, final GACacheOptions gaCacheOptions ) throws MigrateException
     {
         this.pathDB = new CassandraPathDB( config );
         this.session = pathDB.getSession();
-        session.execute( getSchemaCreateTable( keyspace ) );
-        this.preparedStoresIncrement = session.prepare( "UPDATE " + keyspace + ".ga SET stores = stores + ? WHERE ga=?;" );
+        this.cacheOptions = gaCacheOptions;
+        prepareCacheStore();
         this.storePathGen = new IndyStoreBasedPathGenerator( baseDir );
         this.physicalStore = new FileBasedPhysicalStore( new File( baseDir ) );
         this.dedup = dedup;
@@ -109,7 +105,7 @@ public class CassandraMigrator
     }
 
     public static CassandraMigrator getMigrator( final Map<String, Object> cassandraConfig, final String baseDir,
-                                                 final boolean dedup, final String dedupAlgo )
+                                                 final boolean dedup, final String dedupAlgo, final GACacheOptions gaCacheOptions )
             throws MigrateException
     {
         synchronized ( CassandraMigrator.class )
@@ -117,15 +113,10 @@ public class CassandraMigrator
             if ( migrator == null )
             {
                 final PathMappedStorageConfig config = new DefaultPathMappedStorageConfig( cassandraConfig );
-                migrator = new CassandraMigrator( config, baseDir, dedup, dedupAlgo );
+                migrator = new CassandraMigrator( config, baseDir, dedup, dedupAlgo, gaCacheOptions );
             }
         }
         return migrator;
-
-    }
-
-    public void startUp()
-    {
 
     }
 
@@ -160,8 +151,12 @@ public class CassandraMigrator
 
         try
         {
-            pathDB.insert( fileSystem, path, new Date(), null, fileInfo.getFileId(), file.length(), storePath, checksum );
-            insertGa( fileSystem, path );
+            pathDB.insert( fileSystem, path, new Date(), null, fileInfo.getFileId(), file.length(), storePath,
+                           checksum );
+            if ( this.cacheOptions.isDoGACache() )
+            {
+                insertGa( fileSystem, path );
+            }
         }
         catch ( Exception e )
         {
@@ -171,11 +166,23 @@ public class CassandraMigrator
         }
     }
 
+    private void prepareCacheStore()
+    {
+        if ( cacheOptions.doGACache )
+        {
+            final String gaCacheTable = cacheOptions.getGaCacheTableName();
+            session.execute( getSchemaCreateTable( gaCacheTable ) );
+            this.preparedStoresIncrement =
+                    session.prepare( "UPDATE " + gaCacheTable + " SET stores = stores + ? WHERE ga=?;" );
+        }
+    }
+
     private void insertGa( String fileSystem, String path )
     {
         if ( fileSystem.startsWith( MAVEN_HOSTED ) && path.endsWith( ".pom" ) )
         {
             String repoName = fileSystem.substring( MAVEN_HOSTED.length() );
+            final String gaStorePattern = this.cacheOptions.getGaCacheStorePattern();
             if ( gaStorePattern != null && repoName.matches( gaStorePattern ) )
             {
                 update( getGaPath( path ), Collections.singleton( repoName ) );
@@ -233,8 +240,40 @@ public class CassandraMigrator
 
     public void shutdown()
     {
-        update( SCANNED_STORES, scanned );
+        if ( this.cacheOptions.isDoGACache() )
+        {
+            final String SCANNED_STORES = "scanned-stores";
+            update( SCANNED_STORES, scanned );
+        }
         migrator = null;
         pathDB.close();
+    }
+
+    static class GACacheOptions{
+        private final boolean doGACache;
+        private final String gaCacheStorePattern;
+        private final String gaCacheTableName;
+
+        GACacheOptions( boolean doGACache, String gaCacheStorePattern, String gaCacheTableName )
+        {
+            this.doGACache = doGACache;
+            this.gaCacheStorePattern = gaCacheStorePattern;
+            this.gaCacheTableName = gaCacheTableName;
+        }
+
+        public boolean isDoGACache()
+        {
+            return doGACache;
+        }
+
+        public String getGaCacheStorePattern()
+        {
+            return gaCacheStorePattern;
+        }
+
+        public String getGaCacheTableName()
+        {
+            return gaCacheTableName;
+        }
     }
 }
