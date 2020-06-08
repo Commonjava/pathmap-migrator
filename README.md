@@ -32,5 +32,9 @@ Options:
 -u (--user)      : Cassandra server username  
 -d (--dedupe)    : If to use checksum to dedupe all files in file storage  
 -t (--threads)   : Threads which will run migrating concurrently
+-i (--indexGA)   : Determine if to index GA cache during migrate operation
+-c (--cacheTable): Indy cache table in cassandra, should come with keyspace together
+-g (--indexGAStorePattern): The store pattern for stores which will be cached in GA cache
+ 
 
 For migrate command, when it start, there will be a "status" file generated in ${workDir} to record current processing status, and will be updated every 30 seconds.
