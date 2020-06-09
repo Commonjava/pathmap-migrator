@@ -98,7 +98,7 @@ public class MigrateOptions
     private int threads;
 
     @Option( name = "-i", aliases = "--indexGA", usage = "Determine if to index GA cache during migrate operation" )
-    private boolean indexEnable = true;
+    private String indexEnable;
 
     @Option( name = "-c", aliases = "--cacheTable", usage = "Indy cache table in cassandra, should come with keyspace together" )
     private String indyCacheTable;
@@ -255,12 +255,12 @@ public class MigrateOptions
         this.threads = threads;
     }
 
-    public boolean isIndexEnable()
+    public String getIndexEnable()
     {
-        return indexEnable;
+        return StringUtils.isBlank( indexEnable ) ? "true" : indexEnable.trim().toLowerCase();
     }
 
-    public void setIndexEnable( boolean indexEnable )
+    public void setIndexEnable( String indexEnable )
     {
         this.indexEnable = indexEnable;
     }
@@ -344,8 +344,8 @@ public class MigrateOptions
             {
                 printInfo( String.format( "Checksum algorithm for dedupe: %s", getDedupeAlgorithm() ) );
             }
-            printInfo( String.format( "Will do index for GA cache table? %s", isIndexEnable() ) );
-            if ( isIndexEnable() )
+            printInfo( String.format( "Will do index for GA cache table? %s", getIndexEnable() ) );
+            if ( "true".equals( getIndexEnable() ) )
             {
                 printInfo( String.format( "Store patterns for GA cache: %s", getIndexGAStorePattern() ) );
                 printInfo( String.format( "The cassandra cache table for GA cache: %s", getIndyCacheTable() ) );
@@ -496,7 +496,10 @@ public class MigrateOptions
                             String.format( "Error: checksum algorithm not supported: %s", getDedupeAlgorithm() ), e );
                 }
             }
-            CassandraMigrator.GACacheOptions cacheOptions = new CassandraMigrator.GACacheOptions( this.isIndexEnable(), this.getIndexGAStorePattern(), this.getIndyCacheTable()  );
+            boolean isIndexEnabled = Boolean.parseBoolean( this.getIndexEnable() );
+            CassandraMigrator.GACacheOptions cacheOptions =
+                    new CassandraMigrator.GACacheOptions( isIndexEnabled, this.getIndexGAStorePattern(),
+                                                          this.getIndyCacheTable() );
             migrator = CassandraMigrator.getMigrator( cassandraProps, getBaseDir(), isDedupe(), getDedupeAlgorithm(), cacheOptions );
         }
     }
