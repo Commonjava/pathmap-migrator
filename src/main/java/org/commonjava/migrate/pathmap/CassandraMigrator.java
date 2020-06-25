@@ -36,6 +36,7 @@ import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -64,7 +65,11 @@ public class CassandraMigrator
 
     private final GACacheOptions cacheOptions;
 
+    private final String gaStorePattern;
+
     private final Set<String> scanned = Collections.synchronizedSet( new HashSet<>() );
+
+    private final Map<String, Set<String>> gaMap = Collections.synchronizedMap( new HashMap() );
 
     // @formatter:off
     private static String getSchemaCreateTable( String cacheTable )
@@ -83,6 +88,7 @@ public class CassandraMigrator
         this.pathDB = new CassandraPathDB( config );
         this.session = pathDB.getSession();
         this.cacheOptions = gaCacheOptions;
+        this.gaStorePattern = gaCacheOptions.getGaCacheStorePattern();
         prepareCacheStore();
         this.storePathGen = new IndyStoreBasedPathGenerator( baseDir );
         this.physicalStore = new FileBasedPhysicalStore( new File( baseDir ) );
@@ -182,10 +188,13 @@ public class CassandraMigrator
         if ( fileSystem.startsWith( MAVEN_HOSTED ) && path.endsWith( ".pom" ) )
         {
             String repoName = fileSystem.substring( MAVEN_HOSTED.length() );
-            final String gaStorePattern = this.cacheOptions.getGaCacheStorePattern();
             if ( gaStorePattern != null && repoName.matches( gaStorePattern ) )
             {
-                update( getGaPath( path ), Collections.singleton( repoName ) );
+                String gaPath = getGaPath( path );
+                if ( isNotBlank( gaPath ) )
+                {
+                    gaMap.computeIfAbsent( gaPath, s -> new HashSet() ).add( repoName );
+                }
                 scanned.add( repoName );
             }
         }
@@ -242,6 +251,7 @@ public class CassandraMigrator
     {
         if ( this.cacheOptions.isDoGACache() )
         {
+            gaMap.forEach( ( k, v ) -> update( k, v ) );
             final String SCANNED_STORES = "scanned-stores";
             update( SCANNED_STORES, scanned );
         }
