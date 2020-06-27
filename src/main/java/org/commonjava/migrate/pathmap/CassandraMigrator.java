@@ -30,7 +30,9 @@ import org.commonjava.storage.pathmapped.util.PathMapUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
@@ -247,28 +249,45 @@ public class CassandraMigrator
         return null;
     }
 
+    final String SCANNED_STORES = "scanned-stores";
+
     public void shutdown()
     {
         if ( this.cacheOptions.isDoGACache() )
         {
+            dumpGACacheToFile( cacheOptions.dumpFile );
             gaMap.forEach( ( k, v ) -> update( k, v ) );
-            final String SCANNED_STORES = "scanned-stores";
             update( SCANNED_STORES, scanned );
         }
         migrator = null;
         pathDB.close();
     }
 
+    private void dumpGACacheToFile( File dumpFile )
+    {
+        try (PrintStream ps = new PrintStream( new FileOutputStream( dumpFile ) ))
+        {
+            gaMap.forEach( ( k, v ) -> ps.println( k + "=" + v ) );
+            ps.println( SCANNED_STORES + "=" + scanned );
+        }
+        catch ( IOException e )
+        {
+            e.printStackTrace();
+        }
+    }
+
     static class GACacheOptions{
         private final boolean doGACache;
         private final String gaCacheStorePattern;
         private final String gaCacheTableName;
+        private final File dumpFile;
 
-        GACacheOptions( boolean doGACache, String gaCacheStorePattern, String gaCacheTableName )
+        GACacheOptions( boolean doGACache, String gaCacheStorePattern, String gaCacheTableName, File dumpFile )
         {
             this.doGACache = doGACache;
             this.gaCacheStorePattern = gaCacheStorePattern;
             this.gaCacheTableName = gaCacheTableName;
+            this.dumpFile = dumpFile;
         }
 
         public boolean isDoGACache()
