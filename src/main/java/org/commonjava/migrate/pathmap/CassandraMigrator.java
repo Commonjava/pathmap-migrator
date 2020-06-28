@@ -30,12 +30,15 @@ import org.commonjava.storage.pathmapped.util.PathMapUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -64,7 +67,11 @@ public class CassandraMigrator
 
     private final GACacheOptions cacheOptions;
 
+    private final String gaStorePattern;
+
     private final Set<String> scanned = Collections.synchronizedSet( new HashSet<>() );
+
+    private final Map<String, Set<String>> gaMap = Collections.synchronizedMap( new HashMap() );
 
     // @formatter:off
     private static String getSchemaCreateTable( String cacheTable )
@@ -83,6 +90,7 @@ public class CassandraMigrator
         this.pathDB = new CassandraPathDB( config );
         this.session = pathDB.getSession();
         this.cacheOptions = gaCacheOptions;
+        this.gaStorePattern = gaCacheOptions.getGaCacheStorePattern();
         prepareCacheStore();
         this.storePathGen = new IndyStoreBasedPathGenerator( baseDir );
         this.physicalStore = new FileBasedPhysicalStore( new File( baseDir ) );
@@ -182,10 +190,13 @@ public class CassandraMigrator
         if ( fileSystem.startsWith( MAVEN_HOSTED ) && path.endsWith( ".pom" ) )
         {
             String repoName = fileSystem.substring( MAVEN_HOSTED.length() );
-            final String gaStorePattern = this.cacheOptions.getGaCacheStorePattern();
             if ( gaStorePattern != null && repoName.matches( gaStorePattern ) )
             {
-                update( getGaPath( path ), Collections.singleton( repoName ) );
+                String gaPath = getGaPath( path );
+                if ( isNotBlank( gaPath ) )
+                {
+                    gaMap.computeIfAbsent( gaPath, s -> new HashSet() ).add( repoName );
+                }
                 scanned.add( repoName );
             }
         }
@@ -238,27 +249,45 @@ public class CassandraMigrator
         return null;
     }
 
+    final String SCANNED_STORES = "scanned-stores";
+
     public void shutdown()
     {
         if ( this.cacheOptions.isDoGACache() )
         {
-            final String SCANNED_STORES = "scanned-stores";
+            dumpGACacheToFile( cacheOptions.dumpFile );
+            gaMap.forEach( ( k, v ) -> update( k, v ) );
             update( SCANNED_STORES, scanned );
         }
         migrator = null;
         pathDB.close();
     }
 
+    private void dumpGACacheToFile( File dumpFile )
+    {
+        try (PrintStream ps = new PrintStream( new FileOutputStream( dumpFile ) ))
+        {
+            gaMap.forEach( ( k, v ) -> ps.println( k + "=" + v ) );
+            ps.println( SCANNED_STORES + "=" + scanned );
+        }
+        catch ( IOException e )
+        {
+            e.printStackTrace();
+        }
+    }
+
     static class GACacheOptions{
         private final boolean doGACache;
         private final String gaCacheStorePattern;
         private final String gaCacheTableName;
+        private final File dumpFile;
 
-        GACacheOptions( boolean doGACache, String gaCacheStorePattern, String gaCacheTableName )
+        GACacheOptions( boolean doGACache, String gaCacheStorePattern, String gaCacheTableName, File dumpFile )
         {
             this.doGACache = doGACache;
             this.gaCacheStorePattern = gaCacheStorePattern;
             this.gaCacheTableName = gaCacheTableName;
+            this.dumpFile = dumpFile;
         }
 
         public boolean isDoGACache()

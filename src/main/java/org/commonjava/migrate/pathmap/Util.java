@@ -46,6 +46,8 @@ public class Util
 
     static final String STATUS_FILE = "scan_final";
 
+    static final String GA_CACHE_DUMP = "ga_cache_dump";
+
     static final String PROGRESS_FILE = "migrate_progress";
 
     static final String CMD_SCAN = "scan";
