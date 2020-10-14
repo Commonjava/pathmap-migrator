@@ -9,7 +9,7 @@
 
   <properties>
     <javaVersion>1.8</javaVersion>
-    <pathmap.version>1.6-SNAPSHOT</pathmap.version>
+    <pathmap.version>1.6</pathmap.version>
     <logback.version>1.1.7</logback.version>
   </properties>
 
