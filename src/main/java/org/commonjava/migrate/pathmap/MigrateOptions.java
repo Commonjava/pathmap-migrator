@@ -379,7 +379,7 @@ public class MigrateOptions
 
     static final String FILE_DATE_PATTERN = "yyyyMMddHHmmss";
 
-    static final SimpleDateFormat FILE_DATE_FORMAT = new SimpleDateFormat( FILE_DATE_PATTERN );
+
 
     private FileTime parsedFileTime;
 
@@ -390,7 +390,8 @@ public class MigrateOptions
         {
             try
             {
-                parsedFileTime = FileTime.fromMillis( FILE_DATE_FORMAT.parse( getFileTime() ).getTime() );
+                SimpleDateFormat simpleDateFormat = new SimpleDateFormat( FILE_DATE_PATTERN );
+                parsedFileTime = FileTime.fromMillis( simpleDateFormat.parse( getFileTime() ).getTime() );
             }
             catch ( ParseException e )
             {

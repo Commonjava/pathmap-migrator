@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -40,10 +41,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
-import static java.nio.charset.Charset.defaultCharset;
 import static java.nio.file.Files.readAttributes;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
-import static org.commonjava.migrate.pathmap.MigrateOptions.FILE_DATE_FORMAT;
+import static org.commonjava.migrate.pathmap.MigrateOptions.FILE_DATE_PATTERN;
 import static org.commonjava.migrate.pathmap.Util.TODO_FILES_DIR;
 import static org.commonjava.migrate.pathmap.Util.newLine;
 import static org.commonjava.migrate.pathmap.Util.newLines;
@@ -414,12 +414,14 @@ public class ScanCmd
     private void storeTotal( final int totalNum, final MigrateOptions options )
             throws IOException
     {
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat( FILE_DATE_PATTERN );
+
         final File f = options.getStatusFile();
         try (FileOutputStream os = new FileOutputStream( f ))
         {
             IOUtils.write( String.format( "Total:%s\n", totalNum ), os );
             IOUtils.write( String.format( "Global last modified time: %s\n",
-                                  FILE_DATE_FORMAT.format( new Date( globalLastModifiedTime.toMillis() ) ) ), os );
+                                          simpleDateFormat.format( new Date( globalLastModifiedTime.toMillis() ) ) ), os );
         }
     }
 
