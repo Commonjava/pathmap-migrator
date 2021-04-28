@@ -99,7 +99,7 @@ public class MigrateOptions
     @Option( name = "-c", aliases = "--cacheTable", usage = "Indy cache table in cassandra, should come with keyspace together" )
     private String indyCacheTable;
 
-    @Option( name = "-T", aliases = "--fileTime", usage = "Scan files that are after specified FileTime ('yyyyMMddHH')" )
+    @Option( name = "-T", aliases = "--fileTime", usage = "Scan files that are after specified FileTime ('yyyyMMddHHmmss')" )
     private String fileTime;
 
     @Option( name = "-g", aliases = "--indexGAStorePattern",
@@ -377,7 +377,9 @@ public class MigrateOptions
         return true;
     }
 
-    private static final SimpleDateFormat FILE_DATE_FORMAT = new SimpleDateFormat( "yyyyMMddHH" );
+    static final String FILE_DATE_PATTERN = "yyyyMMddHHmmss";
+
+    static final SimpleDateFormat FILE_DATE_FORMAT = new SimpleDateFormat( FILE_DATE_PATTERN );
 
     private FileTime parsedFileTime;
 
@@ -392,7 +394,7 @@ public class MigrateOptions
             }
             catch ( ParseException e )
             {
-                printInfo( "Invalid fileTime (should be yyyyMMddHH), " + fileTime + ", " + e );
+                printInfo( "Invalid fileTime (should be " + FILE_DATE_PATTERN + "), " + fileTime + ", " + e );
                 return false;
             }
         }

@@ -29,6 +29,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,8 +40,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
+import static java.nio.charset.Charset.defaultCharset;
 import static java.nio.file.Files.readAttributes;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.commonjava.migrate.pathmap.MigrateOptions.FILE_DATE_FORMAT;
 import static org.commonjava.migrate.pathmap.Util.TODO_FILES_DIR;
 import static org.commonjava.migrate.pathmap.Util.newLine;
 import static org.commonjava.migrate.pathmap.Util.newLines;
@@ -89,6 +92,7 @@ public class ScanCmd
         newLines( 2 );
         printInfo( String.format( "File Scan completed, there are %s files need to migrate.", total ) );
         printInfo( String.format( "Time consumed: %s seconds", ( end - start ) / 1000 ) );
+        printInfo( String.format( "Global last modified time: %s\n", globalLastModifiedTime ) );
         newLine();
 
         try
@@ -318,17 +322,47 @@ public class ScanCmd
             return p -> {
                 boolean notNeed = pattern.matcher( p.getFileName().toString() ).matches();
                 return !notNeed && ( fileTime == null ?
-                                Files.isRegularFile( p ) :
+                                isRegularFile( p ) :
                                 isRegularFileAfterTime( p, fileTime ) );
             };
         }
         else
         {
-            return p -> fileTime == null ? Files.isRegularFile( p ) : isRegularFileAfterTime( p, fileTime );
+            return p -> fileTime == null ? isRegularFile( p ) : isRegularFileAfterTime( p, fileTime );
         }
     }
 
-    public static boolean isRegularFileAfterTime( Path path, FileTime other, LinkOption... options )
+    private FileTime globalLastModifiedTime = FileTime.fromMillis( 0 );
+
+    private synchronized void updateGlobalLastModifiedTime( FileTime t )
+    {
+        if ( t.compareTo( globalLastModifiedTime ) > 0 )
+        {
+            globalLastModifiedTime = t;
+        }
+    }
+
+    public boolean isRegularFile( Path path, LinkOption... options )
+    {
+        BasicFileAttributes attr;
+        try
+        {
+            attr = readAttributes( path, BasicFileAttributes.class, options );
+        }
+        catch ( IOException e )
+        {
+            printInfo( "Read file attribute failed, " + e );
+            return false;
+        }
+        boolean isRegularFile = attr.isRegularFile();
+        if ( isRegularFile )
+        {
+            updateGlobalLastModifiedTime( attr.lastModifiedTime() );
+        }
+        return isRegularFile;
+    }
+
+    public boolean isRegularFileAfterTime( Path path, FileTime other, LinkOption... options )
     {
         BasicFileAttributes attr;
         try
@@ -345,6 +379,7 @@ public class ScanCmd
         if ( isRegularFile )
         {
             FileTime t = attr.lastModifiedTime();
+            updateGlobalLastModifiedTime( t );
             return t.compareTo( other ) > 0; // compareTo return a value greater than 0 if this FileTime is after other
         }
 
@@ -382,8 +417,9 @@ public class ScanCmd
         final File f = options.getStatusFile();
         try (FileOutputStream os = new FileOutputStream( f ))
         {
-            IOUtils.write( String.format( "Total:%s", totalNum ), os );
-            IOUtils.write( "\n", os );
+            IOUtils.write( String.format( "Total:%s\n", totalNum ), os );
+            IOUtils.write( String.format( "Global last modified time: %s\n",
+                                  FILE_DATE_FORMAT.format( new Date( globalLastModifiedTime.toMillis() ) ) ), os );
         }
     }
 
