@@ -27,14 +27,19 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.FileTime;
 import java.security.NoSuchAlgorithmException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.commonjava.migrate.pathmap.Util.*;
 import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils.PROP_CASSANDRA_HOST;
 import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils.PROP_CASSANDRA_KEYSPACE;
@@ -93,6 +98,9 @@ public class MigrateOptions
 
     @Option( name = "-c", aliases = "--cacheTable", usage = "Indy cache table in cassandra, should come with keyspace together" )
     private String indyCacheTable;
+
+    @Option( name = "-T", aliases = "--fileTime", usage = "Scan files that are after specified FileTime ('yyyyMMddHH')" )
+    private String fileTime;
 
     @Option( name = "-g", aliases = "--indexGAStorePattern",
              usage = "The store pattern for stores which will be cached in GA cache" )
@@ -266,6 +274,16 @@ public class MigrateOptions
         this.indexGAStorePattern = indexGAStorePattern;
     }
 
+    public String getFileTime()
+    {
+        return fileTime;
+    }
+
+    public void setFileTime( String fileTime )
+    {
+        this.fileTime = fileTime;
+    }
+
     public String getIndyCacheTable()
     {
         return StringUtils.isBlank( indyCacheTable ) ? "indycache.ga" : indyCacheTable;
@@ -346,7 +364,7 @@ public class MigrateOptions
 
         newLine();
         //        printInfo( String.format( "Threads number to run the whole process? %s", getThreads() ) );
-        if ( getCommand().equals( CMD_SCAN ) && !validateBaseDir() )
+        if ( getCommand().equals( CMD_SCAN ) && ! (validateBaseDir() && validateFileTime()) )
         {
             return false;
         }
@@ -357,6 +375,33 @@ public class MigrateOptions
         }
 
         return true;
+    }
+
+    private static final SimpleDateFormat FILE_DATE_FORMAT = new SimpleDateFormat( "yyyyMMddHH" );
+
+    private FileTime parsedFileTime;
+
+    private boolean validateFileTime()
+    {
+        String fileTime = getFileTime();
+        if ( isNotBlank( fileTime ) )
+        {
+            try
+            {
+                parsedFileTime = FileTime.fromMillis( FILE_DATE_FORMAT.parse( getFileTime() ).getTime() );
+            }
+            catch ( ParseException e )
+            {
+                printInfo( "Invalid fileTime (should be yyyyMMddHH), " + fileTime + ", " + e );
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public FileTime getParsedFileTime()
+    {
+        return parsedFileTime;
     }
 
     private boolean validateBaseDir()
