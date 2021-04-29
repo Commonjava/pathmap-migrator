@@ -16,17 +16,21 @@
 package org.commonjava.migrate.pathmap;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.StringUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +41,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
+import static java.nio.file.Files.readAttributes;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.commonjava.migrate.pathmap.MigrateOptions.FILE_DATE_PATTERN;
 import static org.commonjava.migrate.pathmap.Util.TODO_FILES_DIR;
 import static org.commonjava.migrate.pathmap.Util.newLine;
 import static org.commonjava.migrate.pathmap.Util.newLines;
@@ -85,6 +92,7 @@ public class ScanCmd
         newLines( 2 );
         printInfo( String.format( "File Scan completed, there are %s files need to migrate.", total ) );
         printInfo( String.format( "Time consumed: %s seconds", ( end - start ) / 1000 ) );
+        printInfo( String.format( "Global last modified time: %s\n", globalLastModifiedTime ) );
         newLine();
 
         try
@@ -306,18 +314,76 @@ public class ScanCmd
 
     private Predicate<Path> getFileFilter( final MigrateOptions options )
     {
-        if ( StringUtils.isNotBlank( options.getFilterPattern() ) )
+        final FileTime fileTime = options.getParsedFileTime();
+
+        if ( isNotBlank( options.getFilterPattern() ) )
         {
             final Pattern pattern = Pattern.compile( options.getFilterPattern() );
             return p -> {
                 boolean notNeed = pattern.matcher( p.getFileName().toString() ).matches();
-                return Files.isRegularFile( p ) && !notNeed;
+                return !notNeed && ( fileTime == null ?
+                                isRegularFile( p ) :
+                                isRegularFileAfterTime( p, fileTime ) );
             };
         }
         else
         {
-            return Files::isRegularFile;
+            return p -> fileTime == null ? isRegularFile( p ) : isRegularFileAfterTime( p, fileTime );
         }
+    }
+
+    private FileTime globalLastModifiedTime = FileTime.fromMillis( 0 );
+
+    private synchronized void updateGlobalLastModifiedTime( FileTime t )
+    {
+        if ( t.compareTo( globalLastModifiedTime ) > 0 )
+        {
+            globalLastModifiedTime = t;
+        }
+    }
+
+    public boolean isRegularFile( Path path, LinkOption... options )
+    {
+        BasicFileAttributes attr;
+        try
+        {
+            attr = readAttributes( path, BasicFileAttributes.class, options );
+        }
+        catch ( IOException e )
+        {
+            printInfo( "Read file attribute failed, " + e );
+            return false;
+        }
+        boolean isRegularFile = attr.isRegularFile();
+        if ( isRegularFile )
+        {
+            updateGlobalLastModifiedTime( attr.lastModifiedTime() );
+        }
+        return isRegularFile;
+    }
+
+    public boolean isRegularFileAfterTime( Path path, FileTime other, LinkOption... options )
+    {
+        BasicFileAttributes attr;
+        try
+        {
+            attr = readAttributes( path, BasicFileAttributes.class, options );
+        }
+        catch ( IOException e )
+        {
+            printInfo( "Read file attribute failed, " + e );
+            return false;
+        }
+
+        boolean isRegularFile = attr.isRegularFile();
+        if ( isRegularFile )
+        {
+            FileTime t = attr.lastModifiedTime();
+            updateGlobalLastModifiedTime( t );
+            return t.compareTo( other ) > 0; // compareTo return a value greater than 0 if this FileTime is after other
+        }
+
+        return false;
     }
 
     private String getTodoPrefixForPkg( final String pkgPathString )
@@ -348,11 +414,14 @@ public class ScanCmd
     private void storeTotal( final int totalNum, final MigrateOptions options )
             throws IOException
     {
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat( FILE_DATE_PATTERN );
+
         final File f = options.getStatusFile();
         try (FileOutputStream os = new FileOutputStream( f ))
         {
-            IOUtils.write( String.format( "Total:%s", totalNum ), os );
-            IOUtils.write( "\n", os );
+            IOUtils.write( String.format( "Total:%s\n", totalNum ), os );
+            IOUtils.write( String.format( "Global last modified time: %s\n",
+                                          simpleDateFormat.format( new Date( globalLastModifiedTime.toMillis() ) ) ), os );
         }
     }
 
