@@ -178,7 +178,6 @@ public class MigrateCmd
             if ( !failedPaths.isEmpty() )
             {
                 storeFailedPaths( options, failedPaths );
-                failedCount.addAndGet( failedPaths.size() );
                 failedPaths.clear();
             }
         }
@@ -186,7 +185,7 @@ public class MigrateCmd
 
     private Timer progressTimer = new Timer();
 
-    private void init( MigrateOptions options )
+    private void init( MigrateOptions options ) throws MigrateException
     {
         // Reload last processed paths count
         Path progressFilePath = Paths.get( options.getWorkDir(), PROGRESS_FILE );
@@ -216,6 +215,24 @@ public class MigrateCmd
         final long period = 15000L;
         // Trigger progress update task.
         progressTimer.schedule( new UpdateProgressTask( options ), period, period );
+
+        checkProcessedDir( options.getProcessedDir() );
+    }
+
+    private void checkProcessedDir( String processedDir ) throws MigrateException
+    {
+        Path dir = Paths.get( processedDir );
+        if ( !Files.isDirectory( dir ) )
+        {
+            try
+            {
+                Files.createDirectory( dir );
+            }
+            catch ( IOException e )
+            {
+                throw new MigrateException( e.toString() );
+            }
+        }
     }
 
     private void stop( MigrateOptions options )
